@@ -2,7 +2,7 @@
 2025 Graduation Team Project — Information and Communication Engineering
 
 # Automatic English Vocabulary List Generation System
-**2025 Graduation Team Project (Portfolio Version)**
+**2025 Graduation Team Project**
 
 ## 🔍 Overview
 This project is a **user-centered English vocabulary learning system** designed to automatically generate personalized vocabulary lists based on users’ word search history.
