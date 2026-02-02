@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>단어장 상세</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; background:#F7F9FC; color:#333; }
+    .container { max-width: 1000px; margin: 0 auto; padding: 2rem 1rem; }
+    .word-card {
+      background:#fff; border-radius:8px; padding:1.5rem;
+      box-shadow:0 4px 6px rgba(0,0,0,0.05);
+      position:relative;
+    }
+    .word-card.learning .status-tag { background:#DBEAFE; color:#2563EB; }
+    .word-card.completed .status-tag { background:#D1FAE5; color:#16A34A; }
+    .plus-btn {
+      position:absolute; top:12px; right:12px; color:#9CA3AF; cursor:pointer;
+    }
+    .plus-btn:hover { color:#111827; }
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.45);
+      display: none; align-items:center; justify-content:center; z-index:1000;
+    }
+    .modal-overlay.show { display:flex; }
+    .modal-card {
+      width: 92%; max-width: 420px; background:#fff; border-radius: 14px;
+      box-shadow: 0 20px 40px rgba(0,0,0,.18);
+    }
+    .user-menu { position:relative; display:inline-block; }
+    .user-dropdown {
+      display:none; position:absolute; right:0; top:100%; transform:translateY(-8px);
+      background:#fff; border:1px solid #ddd; border-radius:8px; margin-top:8px; min-width:160px;
+      box-shadow:0 4px 8px rgba(0,0,0,.1); z-index:100;
+    }
+    .user-dropdown a { display:block; padding:8px 12px; font-size:14px; color:#333; text-decoration:none; }
+    .user-dropdown a:hover { background:#f0f0f0; }
+    .user-menu:hover .user-dropdown { display:block; }
+  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+</head>
+<body class="bg-gray-100">
+
+  <!-- 네비게이션 -->
+  <header class="bg-white shadow-md py-4">
+    <nav class="container flex justify-between items-center">
+      <div class="flex items-center space-x-6">
+        <a href="home.html" class="text-gray-800 text-lg font-bold">홈</a>
+        <a href="word_main.html" class="text-blue-600 text-lg font-bold">단어장</a>
+        <a href="word_tool_main.html" class="text-gray-800 text-lg font-bold">학습 도구</a>
+        <a href="word_dashboard.html" class="text-gray-800 text-lg font-bold">사용자</a>
+      </div>
+      <div id="authContainer" class="flex items-center space-x-4"></div>
+    </nav>
+  </header>
+
+  <main class="container">
+    <section class="mb-8">
+      <div class="flex flex-col sm:flex-row items-center sm:space-x-8">
+        <div class="w-full sm:w-1/3 p-6 flex flex-col items-center bg-white rounded-xl shadow-lg">
+          <div class="relative w-36 h-36">
+            <svg class="w-full h-full" viewBox="0 0 100 100">
+              <circle class="text-gray-200 stroke-current" stroke-width="8" cx="50" cy="50" r="40" fill="transparent"></circle>
+              <circle class="text-blue-600 progress-circle stroke-current" stroke-width="8" cx="50" cy="50" r="40" fill="transparent"
+                stroke-dasharray="251.2" stroke-dashoffset="251.2" style="transition: stroke-dashoffset 0.5s ease;"></circle>
+            </svg>
+            <div class="absolute inset-0 flex items-center justify-center text-3xl font-bold text-gray-800 progress-text">
+              0%
+            </div>
+          </div>
+        </div>
+        <div class="w-full sm:w-2/3 mt-6 sm:mt-0">
+          <h1 id="pageTitle" class="text-3xl font-bold text-gray-900 mb-2">단어장</h1>
+
+          <!-- 텍스트 필드(뜻/유의어/반의어/예문) 표시 토글 -->
+          <div class="flex flex-wrap items-center gap-2">
+            <label class="flex items-center space-x-1 cursor-pointer">
+              <input type="checkbox" id="filterAll" class="filter-checkbox" data-filter="all" checked>
+              <span>전체</span>
+            </label>
+            <label class="flex items-center space-x-1 cursor-pointer">
+              <input type="checkbox" class="filter-checkbox" data-filter="meaning">
+              <span>뜻</span>
+            </label>
+            <label class="flex items-center space-x-1 cursor-pointer">
+              <input type="checkbox" class="filter-checkbox" data-filter="synonyms">
+              <span>유의어</span>
+            </label>
+            <label class="flex items-center space-x-1 cursor-pointer">
+              <input type="checkbox" class="filter-checkbox" data-filter="antonyms">
+              <span>반의어</span>
+            </label>
+            <label class="flex items-center space-x-1 cursor-pointer">
+              <input type="checkbox" class="filter-checkbox" data-filter="examples">
+              <span>예문</span>
+            </label>
+          </div>
+
+          <!-- 학습 상태 콤보박스 (카드 자체 표시/숨김) -->
+          <div class="mt-3 flex items-center gap-2">
+            <label for="studyFilter" class="font-medium">학습 상태:</label>
+            <select id="studyFilter" class="p-2 border rounded-md bg-white">
+              <option value="all">전체</option>
+              <option value="learning">학습중</option>
+              <option value="completed">학습완료</option>
+            </select>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <div id="wordList" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <p class="text-gray-500">단어를 불러오는 중...</p>
+    </div>
+  </main>
+
+  <div id="addModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="px-5 py-4 flex items-center justify-between border-b">
+        <h3 class="text-lg font-bold">단어 추가</h3>
+        <button id="addClose" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="p-5 space-y-4">
+        <label class="block text-sm text-gray-600 mb-1">추가할 단어장 선택</label>
+        <select id="customSelect" class="w-full p-2 rounded-md border border-gray-300"></select>
+        <div class="flex justify-end gap-2">
+          <button id="addCancel" class="px-4 py-2 rounded-md bg-gray-200 text-gray-800 hover:bg-gray-300">취소</button>
+          <button id="addConfirm" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">추가</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="alertModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="px-5 py-4 border-b">
+        <h3 id="alertMessage" class="text-lg font-semibold text-gray-800"></h3>
+      </div>
+      <div class="p-5 flex justify-end">
+        <button id="alertOk" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
+    import { getFirestore, doc, collection, getDocs, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBXc7qF3lz2dbWOu1O3ftSNu8dye1RLk3E",
+      authDomain: "auto-dictionary-29936.firebaseapp.com",
+      projectId: "auto-dictionary-29936",
+      storageBucket: "auto-dictionary-29936.appspot.com",
+      messagingSenderId: "103494421267",
+      appId: "1:103494421267:web:6762683fac5ac130e468e6",
+      measurementId: "G-EKSJXHHRYS"
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth();
+    const db = getFirestore();
+    const provider = new GoogleAuthProvider();
+
+    const authContainer = document.getElementById("authContainer");
+    const wordList = document.getElementById("wordList");
+    const progressCircle = document.querySelector(".progress-circle");
+    const progressText = document.querySelector(".progress-text");
+    const filterCheckboxes = document.querySelectorAll(".filter-checkbox");
+    const filterAll = document.getElementById("filterAll");
+    const studyFilter = document.getElementById("studyFilter");
+
+    const addModal = document.getElementById("addModal");
+    const addClose = document.getElementById("addClose");
+    const addCancel = document.getElementById("addCancel");
+    const addConfirm = document.getElementById("addConfirm");
+    const customSelect = document.getElementById("customSelect");
+
+    const alertModal = document.getElementById("alertModal");
+    const alertMessage = document.getElementById("alertMessage");
+    const alertOk = document.getElementById("alertOk");
+
+    let currentUser = null;
+    let currentWordData = null;
+
+    function login(){ signInWithPopup(auth, provider); }
+    function logout(){ signOut(auth); }
+    function updateAuthUI(user){
+      authContainer.innerHTML = '';
+      if(user){
+        const name = user.displayName ? (user.displayName.length>5 ? user.displayName.slice(0,5)+'…' : user.displayName) : (user.email||'사용자');
+        authContainer.innerHTML = `
+          <div class="user-menu">
+            <a href="javascript:void(0);" class="flex items-center space-x-2">
+              <span class="user-label font-semibold">${name}</span>
+              <img src="${user.photoURL||''}" alt="사용자" style="width:28px;height:28px;border-radius:50%;"/>
+            </a>
+            <div class="user-dropdown">
+              <a href="#">${user.email}</a>
+              <a href="#" id="logoutBtn">로그아웃</a>
+            </div>
+          </div>`;
+        document.getElementById('logoutBtn')?.addEventListener('click', e => { e.preventDefault(); logout(); });
+      } else {
+        authContainer.innerHTML = `<button id="loginBtn" class="px-4 py-2 rounded-full bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition">로그인</button>`;
+        document.getElementById('loginBtn')?.addEventListener('click', login);
+      }
+    }
+
+    function showAlert(msg){
+      alertMessage.textContent = msg;
+      alertModal.classList.add("show");
+    }
+    alertOk.addEventListener("click",()=> alertModal.classList.remove("show"));
+
+    function updateProgress(total, completed){
+      const percentage = total ? Math.round((completed/total)*100) : 0;
+      progressText.textContent = `${percentage}%`;
+      const circumference = 2 * Math.PI * 40;
+      progressCircle.style.strokeDashoffset = circumference - (percentage/100)*circumference;
+    }
+
+    // 텍스트 필드(뜻/유의어/반의어/예문) 표시/숨김
+    function applyFilters(){
+      const activeFilters = Array.from(filterCheckboxes).filter(cb => cb.checked && cb.dataset.filter!=="all").map(cb => cb.dataset.filter);
+      const cards = wordList.querySelectorAll(".word-card");
+      cards.forEach(card => {
+        const fields = ["meaning","synonyms","antonyms","examples"];
+        fields.forEach(f => {
+          const el = card.querySelector("."+f);
+          if(el){
+            if(activeFilters.length===0 || activeFilters.includes(f)){
+              el.style.display="block";
+            }else{
+              el.style.display="none";
+            }
+          }
+        });
+      });
+    }
+
+    // 학습 상태(전체/학습중/학습완료)로 카드 자체 표시/숨김
+    function applyStudyFilter(){
+      const mode = studyFilter?.value || "all"; // "all" | "learning" | "completed"
+      const cards = wordList.querySelectorAll(".word-card");
+      cards.forEach(card => {
+        const studied = card.dataset.study === "true";
+        if (mode === "all") {
+          card.style.display = "";
+        } else if (mode === "learning") {
+          card.style.display = studied ? "none" : "";
+        } else if (mode === "completed") {
+          card.style.display = studied ? "" : "none";
+        }
+      });
+    }
+
+    // 텍스트 필드 필터 체크박스 이벤트
+    filterCheckboxes.forEach(cb=>{
+      cb.addEventListener("change",()=>{
+        if(cb.dataset.filter==="all"){
+          if(cb.checked){
+            filterCheckboxes.forEach(c=>{ if(c!==cb) c.checked=false; });
+          }
+        }else{
+          filterAll.checked=false;
+          if(Array.from(filterCheckboxes).filter(c=>c.checked && c.dataset.filter!=="all").length===0){
+            filterAll.checked=true;
+          }
+        }
+        applyFilters();
+      });
+    });
+
+    // 학습 상태 콤보박스 이벤트
+    studyFilter.addEventListener("change", () => {
+      applyStudyFilter();
+    });
+
+    async function loadWords(user, type, key){
+      let searchHistoryCol;
+      if(type==="dates"){
+        searchHistoryCol = collection(db, "users", user.email, "dates", key, "searchHistory");
+      }else{
+        searchHistoryCol = collection(db, "users", user.email, "custom", key, "searchHistory");
+      }
+      const snap = await getDocs(searchHistoryCol);
+
+      if(snap.empty){
+        wordList.innerHTML = "<p class='text-gray-500'>단어가 없습니다.</p>";
+        updateProgress(0,0);
+        return;
+      }
+
+      let total = 0, completed = 0;
+      wordList.innerHTML = "";
+
+      snap.forEach(docSnap => {
+        const d = docSnap.data();
+        if(!d.word) return;
+        total++;
+        const study = d.study === true;
+        if(study) completed++;
+
+        const card = document.createElement("div");
+        card.className = `word-card ${study ? 'completed' : 'learning'}`;
+        card.dataset.study = String(study); // 학습 상태를 data-attribute에 저장
+        card.innerHTML = `
+          <div class="flex justify-between items-center mb-4">
+            <div class="flex items-center">
+              <h3 class="text-2xl font-bold text-gray-800 mr-2">${d.word}</h3>
+              <button class="px-3 py-1 rounded-full text-xs font-semibold status-tag">${study ? '학습완료' : '학습중'}</button>
+            </div>
+            <button class="plus-btn"><i class="fa-solid fa-plus"></i></button>
+          </div>
+          <div class="mt-4 space-y-2">
+            <p class="meaning text-gray-700">뜻: ${(d.meaning||[]).join(", ")}</p>
+            <p class="synonyms text-gray-700">유의어: ${(d.synonyms||[]).join(", ")}</p>
+            <p class="antonyms text-gray-700">반의어: ${(d.antonyms||[]).join(", ")}</p>
+            <p class="examples text-gray-700">예문: ${(d.examples||[]).join(", ")}</p>
+          </div>
+        `;
+
+        const btn = card.querySelector(".status-tag");
+        btn.addEventListener("click", async () => {
+          await updateDoc(docSnap.ref, { study: !study });
+          loadWords(user, type, key); // 새로고침 후 필터 재적용됨
+        });
+
+        card.querySelector(".plus-btn").addEventListener("click", async ()=>{
+          currentWordData = d;
+          customSelect.innerHTML = "";
+          const customCol = collection(db,"users",user.email,"custom");
+          const customSnap = await getDocs(customCol);
+          customSnap.forEach(c=>{
+            const opt = document.createElement("option");
+            opt.value = c.id;
+            opt.textContent = c.id;
+            customSelect.appendChild(opt);
+          });
+          addModal.classList.add("show");
+        });
+
+        wordList.appendChild(card);
+      });
+
+      updateProgress(total, completed);
+      applyFilters();      // 텍스트 필드 표시/숨김
+      applyStudyFilter();  // 학습 상태에 따른 카드 표시/숨김
+    }
+
+    addClose.addEventListener("click",()=> addModal.classList.remove("show"));
+    addCancel.addEventListener("click",()=> addModal.classList.remove("show"));
+    addConfirm.addEventListener("click",async ()=>{
+      if(!currentUser || !currentWordData) return;
+      const targetName = customSelect.value;
+      if(!targetName) return;
+      const ref = doc(db,"users",currentUser.email,"custom",targetName,"searchHistory",currentWordData.word);
+      await setDoc(ref,currentWordData,{merge:true});
+      addModal.classList.remove("show");
+      showAlert("단어가 추가되었습니다!");
+    });
+
+    onAuthStateChanged(auth, async (user) => {
+      currentUser = user;
+      updateAuthUI(user);
+      const params = new URLSearchParams(window.location.search);
+      const dateId = params.get("date");
+      const customName = params.get("name");
+      const type = params.get("type") || "dates";
+      if(user){
+        if(type==="dates" && dateId){
+          document.getElementById("pageTitle").textContent = `${dateId} 단어장`;
+          await loadWords(user,"dates",dateId);
+        }else if(type==="custom" && customName){
+          document.getElementById("pageTitle").textContent = `${customName} 단어장`;
+          await loadWords(user,"custom",customName);
+        }
+      }else{
+        wordList.innerHTML = "<p class='text-gray-500'>로그인 후 이용 가능합니다.</p>";
+      }
+    });
+  </script>
+</body>
+</html>

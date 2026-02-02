@@ -93,6 +93,12 @@ Through this role, I gained hands-on experience in **technical leadership, user-
 - Visual analytics for learning progress  
 - Enhanced user interaction and feedback mechanisms  
 
+## Backend & Security Note
+The backend services (Firebase configuration, API keys, and security rules) were managed by another team member.
+
+For security reasons, backend credentials and configurations are not included in this public repository.
+This repository focuses on frontend implementation, UI/UX design, and system interaction logic.
+
 ---
 
 ## 📝 Note

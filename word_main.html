@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>단어장 목록</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; background:#F7F9FC; color:#333; }
+    .container { max-width: 1000px; margin: 0 auto; padding: 2rem 1rem; }
+    .wordbook-card {
+      background:#fff; border-radius: 12px; padding: 1.5rem;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+      transition: transform .2s, box-shadow .2s;
+      position: relative; cursor: pointer;
+    }
+    .wordbook-card:hover { transform: translateY(-4px); box-shadow: 0 10px 15px rgba(0,0,0,0.1); }
+    .user-wordbook { border-left: 5px solid #6366F1; }
+    .custom-wordbook { border-left: 5px solid #10B981; }
+    .progress-bar-container { background:#E5E7EB; border-radius: 9999px; height: 8px; overflow: hidden; }
+    .progress-bar { background:#6366F1; height: 100%; transition: width .4s ease; }
+
+    /* 모달 */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items:center; justify-content:center; z-index:1000; }
+    .modal-overlay.show { display:flex; }
+    .modal-card { width: 92%; max-width: 420px; background:#fff; border-radius: 14px; box-shadow: 0 20px 40px rgba(0,0,0,.18); }
+  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100">
+
+  <!-- 네비게이션 -->
+  <header class="bg-white shadow-md py-4">
+    <nav class="container flex justify-between items-center">
+      <div class="flex items-center space-x-6">
+        <a href="home.html" class="text-gray-800 text-lg font-bold">홈</a>
+        <a href="word_main.html" class="text-blue-600 text-lg font-bold">단어장</a>
+        <a href="word_tool_main.html" class="text-gray-800 text-lg font-bold">학습 도구</a>
+        <a href="word_dashboard.html" class="text-gray-800 text-lg font-bold">사용자</a>
+      </div>
+      <div id="authContainer" class="flex items-center space-x-4"></div>
+    </nav>
+  </header>
+
+  <main class="container">
+    <!-- 상단: 제목 + 버튼 -->
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+      <h1 class="text-3xl font-bold text-gray-900">내 단어장 목록</h1>
+      <div class="flex items-center gap-3">
+        <button id="btnOpenCreate"
+          class="px-4 py-2 rounded-full bg-blue-600 text-white font-semibold hover:bg-blue-700 transition">
+          <i class="fa-solid fa-plus mr-2"></i>새 단어장 만들기
+        </button>
+        <button id="btnOpenDeleteList"
+          class="px-4 py-2 rounded-full bg-red-500 text-white font-semibold hover:bg-red-600 transition">
+          <i class="fa-solid fa-trash mr-2"></i>단어장 삭제하기
+        </button>
+        <button id="btnOpenDate"
+          class="py-2 px-3 rounded-full bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition">
+          <i class="fa-solid fa-calendar-days mr-2"></i>기간 검색
+        </button>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
+      <div class="flex items-center gap-2">
+        <span class="text-gray-600 font-semibold">정렬 기준:</span>
+        <select id="sortSelect" class="rounded-md border border-gray-300 py-1 px-3 text-gray-700">
+          <option value="date-desc">최신순</option>
+          <option value="study-count-desc">학습 횟수순</option>
+        </select>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span class="text-gray-600 font-semibold">보기:</span>
+        <select id="typeSelect" class="rounded-md border border-gray-300 py-1 px-3 text-gray-700">
+          <option value="all">전체</option>
+          <option value="dates">날짜별 단어장</option>
+          <option value="custom">사용자 단어장</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <p class="text-gray-500">저장된 단어장이 없습니다.</p>
+    </div>
+  </main>
+
+  <div id="createModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="px-5 py-4 flex items-center justify-between border-b">
+        <h3 class="text-lg font-bold">새 단어장 만들기</h3>
+        <button class="text-gray-400 hover:text-gray-600" id="createClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="p-5 space-y-4">
+        <input type="text" id="customNameInput" placeholder="단어장 이름 입력" class="w-full p-2 rounded-md border border-gray-300">
+        <button id="createConfirm" class="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition">만들기</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="deleteListModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="px-5 py-4 flex items-center justify-between border-b">
+        <h3 class="text-lg font-bold">삭제할 단어장 선택</h3>
+        <button class="text-gray-400 hover:text-gray-600" id="deleteListClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="p-5 space-y-4">
+        <select id="deleteSelect" class="w-full p-2 rounded-md border border-gray-300"></select>
+        <div class="flex justify-end gap-2">
+          <button id="deleteListCancel" class="px-4 py-2 rounded-md bg-gray-200 text-gray-800 hover:bg-gray-300">취소</button>
+          <button id="deleteListConfirm" class="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700">삭제</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="dateModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="px-5 py-4 flex items-center justify-between border-b">
+        <h3 class="text-lg font-bold">기간 검색</h3>
+        <button class="text-gray-400 hover:text-gray-600" id="dateClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="p-5 space-y-4">
+        <div class="flex flex-col gap-1">
+          <label class="text-sm text-gray-600">시작일</label>
+          <input type="date" id="startDate" class="w-full p-2 rounded-md border border-gray-300" placeholder="년-월-일">
+        </div>
+        <div class="text-center text-gray-400">~</div>
+        <div class="flex flex-col gap-1">
+          <label class="text-sm text-gray-600">종료일</label>
+          <input type="date" id="endDate" class="w-full p-2 rounded-md border border-gray-300" placeholder="년-월-일">
+        </div>
+        <button id="dateApply" class="w-full mt-2 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition">검색</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase + 로직 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
+    import {
+      getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
+    import {
+      getFirestore, doc, collection, getDocs, setDoc, deleteDoc
+    } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
+
+    // --- Firebase ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyBXc7qF3lz2dbWOu1O3ftSNu8dye1RLk3E",
+      authDomain: "auto-dictionary-29936.firebaseapp.com",
+      projectId: "auto-dictionary-29936",
+      storageBucket: "auto-dictionary-29936.appspot.com",
+      messagingSenderId: "103494421267",
+      appId: "1:103494421267:web:6762683fac5ac130e468e6",
+      measurementId: "G-EKSJXHHRYS"
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth();
+    const db = getFirestore();
+    const provider = new GoogleAuthProvider();
+
+    // --- UI refs ---
+    const authContainer = document.getElementById('authContainer');
+    const listEl = document.getElementById('list');
+    const sortSelect = document.getElementById('sortSelect');
+    const typeSelect = document.getElementById('typeSelect');
+
+    // Create modal
+    const btnOpenCreate = document.getElementById('btnOpenCreate');
+    const createModal = document.getElementById('createModal');
+    const createClose = document.getElementById('createClose');
+    const customNameInput = document.getElementById('customNameInput');
+    const createConfirm = document.getElementById('createConfirm');
+
+    // Delete list modal
+    const btnOpenDeleteList = document.getElementById('btnOpenDeleteList');
+    const deleteListModal = document.getElementById('deleteListModal');
+    const deleteListClose = document.getElementById('deleteListClose');
+    const deleteSelect = document.getElementById('deleteSelect');
+    const deleteListCancel = document.getElementById('deleteListCancel');
+    const deleteListConfirm = document.getElementById('deleteListConfirm');
+
+    const btnOpenDate = document.getElementById('btnOpenDate');
+    const dateModal = document.getElementById('dateModal');
+    const dateClose = document.getElementById('dateClose');
+    const dateApply = document.getElementById('dateApply');
+    const startDateInput = document.getElementById('startDate');
+    const endDateInput = document.getElementById('endDate');
+
+    let currentUser = null;
+    let dataDates = [];   // [{key, dateId, total, completed, el}]
+    let dataCustom = [];  // [{key, name, total, completed, el}]
+    let filterStart = null;
+    let filterEnd = null;
+
+    function login(){ signInWithPopup(auth, provider); }
+    function logout(){ signOut(auth); }
+    function updateAuthUI(user){
+      authContainer.innerHTML = '';
+      if (user) {
+        const name = user.displayName ? (user.displayName.length>5 ? user.displayName.slice(0,5)+'…' : user.displayName) : (user.email||'사용자');
+        authContainer.innerHTML = `
+          <div class="relative group">
+            <a class="flex items-center gap-2 min-w-[120px]">
+              <span class="font-semibold">${name}</span>
+              <img src="${user.photoURL||''}" alt="사용자" class="w-7 h-7 rounded-full object-cover"/>
+            </a>
+            <div class="absolute hidden group-hover:block right-0 mt-2 bg-white border rounded-lg shadow-md min-w-[160px] z-10">
+              <a class="block px-3 py-2 text-sm text-gray-700">${user.email}</a>
+              <button id="logoutBtn" class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100">로그아웃</button>
+            </div>
+          </div>`;
+        document.getElementById('logoutBtn')?.addEventListener('click', logout);
+      } else {
+        authContainer.innerHTML = `<button id="loginBtn" class="px-4 py-2 rounded-full bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">로그인</button>`;
+        document.getElementById('loginBtn')?.addEventListener('click', login);
+      }
+    }
+
+    const pct = (t, c) => t ? Math.round(c/t*100) : 0;
+    const sanitizeName = s => s.replace(/[\\/]/g, '').trim().slice(0, 40);
+
+    function makeDateCard({dateId, total, completed}) {
+      const p = pct(total, completed);
+      const div = document.createElement('div');
+      div.className = 'wordbook-card user-wordbook';
+      div.dataset.type = 'dates';
+      div.dataset.date = dateId;
+      div.dataset.studyCount = completed;
+      div.innerHTML = `
+        <div class="flex items-center mb-4">
+          <i class="fa-solid fa-user text-blue-600 text-xl mr-3"></i>
+          <h3 class="text-xl font-bold text-gray-800">${dateId} 단어장</h3>
+        </div>
+        <p class="text-gray-600 mb-4">총 ${total}개 단어 · ${completed}개 완료</p>
+        <div class="progress-bar-container"><div class="progress-bar" style="width: ${p}%;"></div></div>
+        <p class="text-right text-sm text-gray-500 mt-2">${p}% 완료</p>
+      `;
+      div.addEventListener('click', () => location.href = `word_detail.html?date=${dateId}`);
+      return div;
+    }
+
+    function makeCustomCard({name, total, completed}) {
+      const p = pct(total, completed);
+      const div = document.createElement('div');
+      div.className = 'wordbook-card custom-wordbook';
+      div.dataset.type = 'custom';
+      div.dataset.name = name;
+      div.dataset.studyCount = completed;
+      div.innerHTML = `
+        <div class="flex items-center mb-4">
+          <i class="fa-solid fa-robot text-green-600 text-xl mr-3"></i>
+          <h3 class="text-xl font-bold text-gray-800">${name}</h3>
+        </div>
+        <p class="text-gray-600 mb-4">총 ${total}개 단어 · ${completed}개 완료</p>
+        <div class="progress-bar-container"><div class="progress-bar" style="width: ${p}%;"></div></div>
+        <p class="text-right text-sm text-gray-500 mt-2">${p}% 완료</p>
+      `;
+      div.addEventListener('click', () => location.href = `word_detail.html?type=custom&name=${encodeURIComponent(name)}`);
+      return div;
+    }
+
+    async function loadDates(user) {
+      dataDates = [];
+      const datesCol = collection(doc(db, 'users', user.email), 'dates');
+      const datesSnap = await getDocs(datesCol);
+      for (const d of datesSnap.docs) {
+        const dateId = d.id;
+        const shCol = collection(d.ref, 'searchHistory');
+        const wordsSnap = await getDocs(shCol);
+        const total = wordsSnap.size;
+        let completed = 0;
+        wordsSnap.forEach(w => { if (w.data()?.study === true) completed++; });
+        const el = makeDateCard({dateId, total, completed});
+        dataDates.push({ key: dateId, dateId, total, completed, el });
+      }
+    }
+
+    async function loadCustom(user) {
+      dataCustom = [];
+      const customCol = collection(doc(db, 'users', user.email), 'custom');
+      const docsSnap = await getDocs(customCol);
+      for (const c of docsSnap.docs) {
+        const name = c.id;
+        const shCol = collection(c.ref, 'searchHistory');
+        const wordsSnap = await getDocs(shCol);
+        const total = wordsSnap.size;
+        let completed = 0;
+        wordsSnap.forEach(w => { if (w.data()?.study === true) completed++; });
+        const el = makeCustomCard({name, total, completed});
+        dataCustom.push({ key: name, name, total, completed, el });
+      }
+    }
+
+    function applyFiltersAndRender() {
+      const type = typeSelect.value;
+      const sort = sortSelect.value;
+
+      let items = [];
+      if (type === 'all' || type === 'dates') items = items.concat(dataDates.map(x => ({...x, kind:'dates'})));
+      if (type === 'all' || type === 'custom') items = items.concat(dataCustom.map(x => ({...x, kind:'custom'})));
+
+      if (filterStart || filterEnd) {
+        items = items.filter(it => {
+          if (it.kind !== 'dates') return true;
+          const d = it.dateId; // YYYY-MM-DD
+          if (filterStart && d < filterStart) return false;
+          if (filterEnd && d > filterEnd) return false;
+          return true;
+        });
+      }
+
+      items.sort((a,b) => {
+        if (sort === 'date-desc') {
+          const ad = a.kind === 'dates' ? a.dateId : '0000-00-00';
+          const bd = b.kind === 'dates' ? b.dateId : '0000-00-00';
+          return new Date(bd) - new Date(ad);
+        } else if (sort === 'study-count-desc') {
+          return (b.completed||0) - (a.completed||0);
+        }
+        return 0;
+      });
+
+      listEl.innerHTML = '';
+      if (!items.length) {
+        listEl.innerHTML = `<p class="text-gray-500">조건에 맞는 단어장이 없습니다.</p>`;
+        return;
+      }
+      items.forEach(it => listEl.appendChild(it.el));
+    }
+
+    sortSelect.addEventListener('change', applyFiltersAndRender);
+    typeSelect.addEventListener('change', applyFiltersAndRender);
+
+    btnOpenDate.addEventListener('click', () => dateModal.classList.add('show'));
+    dateClose.addEventListener('click', () => dateModal.classList.remove('show'));
+    dateApply.addEventListener('click', () => {
+      filterStart = startDateInput.value || null;
+      filterEnd   = endDateInput.value || null;
+      dateModal.classList.remove('show');
+      applyFiltersAndRender();
+    });
+
+    btnOpenCreate.addEventListener('click', () => {
+      if (!currentUser) return alert('로그인이 필요합니다.');
+      customNameInput.value = '';
+      createModal.classList.add('show');
+      customNameInput.focus();
+    });
+    createClose.addEventListener('click', () => createModal.classList.remove('show'));
+    createConfirm.addEventListener('click', async (e) => {
+  e.preventDefault();
+  if (!currentUser) return alert('로그인이 필요합니다.');
+  const name = sanitizeName(customNameInput.value);
+  if (!name) return alert('유효한 이름을 입력하세요.');
+  const exists = dataCustom.some(c => c.name === name);
+  if (exists) return alert('같은 이름의 단어장이 이미 있습니다.');
+
+  try {
+    const ref = doc(db, 'users', currentUser.email, 'custom', name);
+    await setDoc(ref, { dummy: true, createdAt: new Date().toISOString() });
+
+    const shRef = doc(db, 'users', currentUser.email, 'custom', name, 'searchHistory', '__init__');
+    await setDoc(shRef, { placeholder: true, createdAt: new Date().toISOString() });
+
+    location.href = "word_main.html";
+
+  } catch (err) {
+    location.href = "word_main.html";
+  }
+});
+
+    btnOpenDeleteList.addEventListener('click', () => {
+      if (!currentUser) return alert('로그인이 필요합니다.');
+      deleteSelect.innerHTML = '';
+      if (!dataCustom.length) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = '삭제할 사용자 단어장이 없습니다';
+        deleteSelect.appendChild(opt);
+      } else {
+        dataCustom.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.name;
+          opt.textContent = c.name;
+          deleteSelect.appendChild(opt);
+        });
+      }
+      deleteListModal.classList.add('show');
+    });
+    deleteListClose.addEventListener('click', () => deleteListModal.classList.remove('show'));
+    deleteListCancel.addEventListener('click', () => deleteListModal.classList.remove('show'));
+    deleteListConfirm.addEventListener('click', async () => {
+      const name = deleteSelect.value;
+      if (!name) return deleteListModal.classList.remove('show');
+      await deleteDoc(doc(db, 'users', currentUser.email, 'custom', name));
+      dataCustom = dataCustom.filter(c => c.name !== name);
+      applyFiltersAndRender();
+      deleteListModal.classList.remove('show');
+    });
+
+    onAuthStateChanged(auth, async (user) => {
+      currentUser = user;
+      updateAuthUI(user);
+      if (!user) {
+        listEl.innerHTML = `<p class="text-gray-500">로그인 후 단어장을 볼 수 있습니다.</p>`;
+        return;
+      }
+      await loadDates(user);
+      await loadCustom(user);
+      applyFiltersAndRender();
+    });
+  </script>
+</body>
+</html>

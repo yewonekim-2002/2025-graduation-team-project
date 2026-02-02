@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>학습 도구 웹</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="word_vocabulary.css">
+</head>
+<body>
+
+  <nav>
+    <a onclick="showSection('home')">홈</a>
+    <a onclick="showSection('vocab')">어휘 학습</a>
+    <a onclick="showSection('tools')">학습 도구 ▼</a>
+    <div class="user-menu">
+      <a href="javascript:void(0);">사용자 ▼</a>
+      <div class="user-dropdown">
+        <a href="#">사용자 정보</a>
+        <a href="#">통계</a>
+        <a href="#">로그아웃</a>
+      </div>
+    </div>
+  </nav>
+
+  <section id="home" class="active">
+    <div class="search-container">
+      <div class="search-wrapper">
+        <input type="text" id="searchInput" class="search-box" placeholder="검색어를 입력하세요" autocomplete="off">
+        <button class="search-button" onclick="search()">
+          <i class="fas fa-search"></i>
+        </button>
+      </div>
+    </div>
+
+    <div id="hintBox" class="hint-box">
+      <div id="suggestionRow" class="suggestion-row"></div>
+    </div>
+
+    <div id="searchResult" class="search-result"></div>
+  </section>
+
+  <section id="vocab">
+    <h1>어휘 학습 페이지</h1>
+    <div class="filter-bar">
+      <label for="month-filter">월별 필터:</label>
+      <select id="month-filter">
+        <option value="all">전체 보기</option>
+      </select>
+
+      <label for="sort-select">정렬:</label>
+      <select id="sort-select">
+        <option value="date">날짜순</option>
+        <option value="count">단어수순</option>
+      </select>
+    </div>
+
+    <div id="wordbook-container"></div>
+
+    <div id="detail-view" class="hidden">
+      <h1 id="detail-title"></h1>
+      <div id="word-list" class="word-list"></div>
+      <button onclick="goBack()">← 목록으로 돌아가기</button>
+    </div>
+  </section>
+
+  <section id="tools">
+    <h1>학습 도구 페이지</h1>
+    <p>이 페이지는 학습 도구들을 제공하는 페이지입니다.</p>
+  </section>
+
+  <section id="user">
+    <h1>사용자</h1>
+  </section>
+
+  <script>
+    // 탭 이동
+    function showSection(id) {
+        if (id === 'vocab') {
+            renderWordbooks(data);
+        }
+
+      document.querySelectorAll('section').forEach(sec => {
+        sec.classList.remove('active');
+      });
+
+      document.getElementById(id).classList.add('active');
+    }
+
+    const data = [
+      {
+        date: "2025-02-03",
+        words: [
+          { word: "happy", meaning: "행복한", synonyms: ["joyful", "cheerful"] },
+          { word: "bright", meaning: "밝은", synonyms: ["shiny", "radiant"] }
+        ]
+      },
+      {
+        date: "2025-02-02",
+        words: [
+          { word: "sad", meaning: "슬픈", synonyms: ["unhappy", "sorrowful"] }
+        ]
+      },
+      {
+        date: "2025-01-10",
+        words: [
+          { word: "happy", meaning: "행복한", synonyms: ["joyful", "cheerful"] },
+          { word: "destruction", meaning: "파멸", synonyms: ["spoiling", "ruination"] },
+          { word: "cold", meaning: "추운", synonyms: ["chilly", "freezing"] }
+        ]
+      },
+      {
+        date: "2024-12-29",
+        words: [
+          { word: "warm", meaning: "따뜻한", synonyms: ["cozy", "mild"] }
+        ]
+      }
+    ];
+
+    const container = document.getElementById("wordbook-container");
+    const filter = document.getElementById("month-filter");
+    const sortSelect = document.getElementById("sort-select");
+
+    function populateMonthFilter() {
+      const months = Array.from(new Set(data.map(d => d.date.slice(0, 7)))).sort().reverse();
+      months.forEach(month => {
+        const opt = document.createElement("option");
+        opt.value = month;
+        opt.textContent = `${month}월`;
+        filter.appendChild(opt);
+      });
+    }
+
+    function renderWordbooks(filteredData = data) {
+      container.innerHTML = '';
+      const sorted = [...filteredData];
+      const sortBy = sortSelect.value;
+      if (sortBy === "date") sorted.sort((a, b) => new Date(b.date) - new Date(a.date));
+      else if (sortBy === "count") sorted.sort((a, b) => b.words.length - a.words.length);
+
+      sorted.forEach(entry => {
+        const card = document.createElement("div");
+        card.className = "wordbook-card";
+
+        const left = document.createElement("div");
+        const dateLink = document.createElement("a");
+        dateLink.href = "#";
+        dateLink.textContent = entry.date;
+        dateLink.style.textDecoration = "underline";
+        dateLink.style.color = "blue";
+        dateLink.style.cursor = "pointer"; 
+        dateLink.addEventListener("click", (e) => {
+            e.preventDefault();
+            showDetailView(entry);
+        });
+
+        left.appendChild(dateLink);
+        left.appendChild(document.createTextNode(` - ${entry.words.length}단어`));
+
+        const toolSelect = document.createElement("select");
+        toolSelect.className = "tool-dropdown";
+        toolSelect.innerHTML = `
+          <option selected disabled>학습도구 ▼</option>
+          <option>플래시카드</option>
+          <option>퀴즈</option>
+          <option>복습</option>
+        `;
+
+        card.appendChild(left);
+        card.appendChild(toolSelect);
+        card.addEventListener("click", (e) => {
+          if (e.target.tagName.toLowerCase() === "select") return;
+          toggleWordDetail(entry, card);
+        });
+
+        container.appendChild(card);
+      });
+    }
+
+    function toggleWordDetail(entry, cardElement) {
+      const existing = cardElement.nextSibling;
+      if (existing && existing.classList.contains("word-list")) {
+        existing.remove();
+        return;
+      }
+
+      const list = document.createElement("div");
+      list.className = "word-list";
+
+      entry.words.forEach(word => {
+        const item = document.createElement("div");
+        item.className = "word-item";
+        item.innerHTML = `<strong>${word.word}</strong> 의미: ${word.meaning}<br><strong>유의어:</strong> ${word.synonyms.join(', ')}`;
+        list.appendChild(item);
+      });
+
+      cardElement.after(list);
+    }
+
+    function showDetailView(entry) {
+      document.getElementById("wordbook-container").classList.add("hidden");
+      document.getElementById("detail-view").classList.remove("hidden");
+      document.querySelector("#vocab h1").classList.add("hidden");
+      document.querySelector(".filter-bar").classList.add("hidden");
+
+      const title = document.getElementById("detail-title");
+      const list = document.getElementById("word-list");
+      title.textContent = `${entry.date} 단어장`;
+      list.innerHTML = "";
+
+      entry.words.forEach(word => {
+        const item = document.createElement("div");
+        item.className = "word-item";
+        item.innerHTML = `
+          <div class="word-row">
+            <div class="word-col">
+              <strong>${word.word}</strong>
+              <div class="meaning">의미: ${word.meaning}</div>
+            </div>
+            <div class="divider"></div>
+            <div class="synonym-col">
+              <strong>유의어:</strong> ${word.synonyms.join(', ')}
+            </div>
+          </div>`;
+        list.appendChild(item);
+      });
+    }
+
+    function goBack() {
+      document.getElementById("detail-view").classList.add("hidden");
+      document.getElementById("wordbook-container").classList.remove("hidden");
+      document.querySelector("#vocab h1").classList.remove("hidden");
+      document.querySelector(".filter-bar").classList.remove("hidden");
+    }
+
+    filter.addEventListener("change", () => {
+      const selected = filter.value;
+      const filtered = selected === "all" ? data : data.filter(d => d.date.startsWith(selected));
+      renderWordbooks(filtered);
+    });
+
+    sortSelect.addEventListener("change", () => {
+      const selected = filter.value;
+      const filtered = selected === "all" ? data : data.filter(d => d.date.startsWith(selected));
+      renderWordbooks(filtered);
+    });
+
+    populateMonthFilter();
+    renderWordbooks(data);
+
+    const input = document.getElementById("searchInput");
+    const hintBox = document.getElementById("hintBox");
+    const suggestionRow = document.getElementById("suggestionRow");
+    const searchResult = document.getElementById("searchResult");
+
+    let suggestions = ['apple', 'house', 'food', 'feel', 'bear', 'banana', 'fruit', 'mouse', 'air', 'pen', 'phone', 'glass'];
+
+    function renderSuggestions() {
+      suggestionRow.innerHTML = '';
+      suggestions.forEach(word => {
+        const item = document.createElement('div');
+        item.className = 'suggestion-item';
+        item.innerHTML = `
+          <span onclick="goToResult('${word}')">${word}</span>
+          <button class="delete-btn" onclick="deleteSuggestion('${word}')">×</button>`;
+        suggestionRow.appendChild(item);
+      });
+    }
+
+    function deleteSuggestion(word) {
+      suggestions = suggestions.filter(item => item !== word);
+      renderSuggestions();
+    }
+
+    input.addEventListener("input", function () {
+      if (input.value.trim() !== "") {
+        hintBox.style.display = "flex";
+        renderSuggestions();
+      } else {
+        hintBox.style.display = "none";
+      }
+    });
+
+    input.addEventListener("keydown", function(event) {
+      if (event.key === "Enter") {
+        search();
+      }
+    });
+
+    function search() {
+      const query = input.value.trim();
+      if (query) {
+        goToResult(query);
+      }
+    }
+
+    function goToResult(query) {
+      searchResult.innerText = `검색결과 : ${query}`;
+    }
+  </script>
+
+</body>
+</html>

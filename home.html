@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>홈</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #F7F9FC;
+      color: #333;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 2rem 1rem;
+    }
+    /* 사용자 메뉴 드롭다운 */
+    .user-menu { position: relative; display: inline-block; }
+    .user-dropdown {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: 100%;
+      transform: translateY(-8px);
+      background-color: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      margin-top: 8px;
+      min-width: 160px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      z-index: 100;
+    }
+    .user-dropdown a {
+      display: block;
+      padding: 8px 12px;
+      font-size: 14px;
+      color: #333;
+      text-decoration: none;
+    }
+    .user-dropdown a:hover {
+      background-color: #f0f0f0;
+    }
+    .user-menu:hover .user-dropdown { display: block; }
+  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <!-- 네비게이션 바 -->
+  <header class="bg-white shadow-md py-4">
+    <nav class="container flex justify-between items-center">
+      <div class="flex items-center space-x-6">
+        <a href="home.html" class="text-blue-600 text-lg font-bold">홈</a>
+        <a href="word_main.html" class="text-gray-800 text-lg font-bold">단어장</a>
+        <a href="word_tool_main.html" class="text-gray-800 text-lg font-bold">학습 도구</a>
+        <a href="word_dashboard.html" class="text-gray-800 text-lg font-bold">사용자</a>
+      </div>
+      <div id="authContainer" class="flex items-center space-x-4"></div>
+    </nav>
+  </header>
+
+  <main class="container">
+    <!-- 메인 타이틀 및 검색 섹션 -->
+    <section class="text-center my-12">
+      <h1 class="text-4xl font-bold text-gray-900 mb-4">
+        단어를 검색하고<br>나만의 단어장을 만들어 보세요
+      </h1>
+      <p class="text-lg text-gray-500 mb-8">
+        검색만 해도 자동으로 단어장이 생성됩니다
+      </p>
+      <div class="relative max-w-2xl mx-auto">
+        <input id="searchInput" type="text" 
+          placeholder="단어를 검색하고 나만의 단어장을 만들어 보세요"
+          class="w-full px-6 py-4 rounded-full border border-gray-300
+                 focus:outline-none focus:ring-2 focus:ring-blue-500
+                 transition shadow-lg">
+        <button id="searchBtn"
+          class="absolute right-0 top-0 mt-4 mr-6 text-gray-400 hover:text-blue-600 transition">
+          <i class="fas fa-search"></i>
+        </button>
+      </div>
+    </section>
+
+    <!-- 학습 현황 대시보드 -->
+    <section class="bg-white p-6 rounded-xl shadow-lg mt-12">
+      <h2 class="text-2xl font-bold mb-6">나의 학습 현황</h2>
+
+      <div class="flex flex-col sm:flex-row justify-between items-center 
+                  space-y-4 sm:space-y-0 sm:space-x-4">
+
+        <!-- 총 학습 단어 -->
+        <div class="p-6 rounded-lg bg-blue-50 flex-1">
+          <h3 class="text-base font-semibold text-gray-800 mb-2">총 학습 단어</h3>
+          <p id="stat_totalWords" class="text-4xl font-bold text-blue-600 mb-2">0개</p>
+          <p class="text-xs text-gray-500">지금까지 학습한 단어 수입니다.</p>
+        </div>
+
+        <!-- 퀴즈 참여 횟수 -->
+        <div class="p-6 rounded-lg bg-green-50 flex-1">
+          <h3 class="text-base font-semibold text-gray-800 mb-2">퀴즈 참여 횟수</h3>
+          <p id="stat_quizCount" class="text-4xl font-bold text-green-600 mb-2">0회</p>
+          <p class="text-xs text-gray-500">학습 도구 참여 기록입니다.</p>
+        </div>
+
+        <!-- 어제 학습 단어 -->
+        <div class="p-6 rounded-lg bg-yellow-50 flex-1">
+          <h3 class="text-base font-semibold text-gray-800 mb-2">어제 학습 단어</h3>
+          <p id="stat_yesterdayWords" class="text-4xl font-bold text-yellow-600 mb-2">0개</p>
+          <p class="text-xs text-gray-500">어제 학습한 단어 수입니다.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Firebase Auth + Firestore + 검색 스크립트 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
+    import {
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      signOut,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
+
+    import {
+      getFirestore, doc, collection, getDocs
+    } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
+
+    /* Firebase 초기화 */
+    const firebaseConfig = {
+      apiKey: "AIzaSyBXc7qF3lz2dbWOu1O3ftSNu8dye1RLk3E",
+      authDomain: "auto-dictionary-29936.firebaseapp.com",
+      projectId: "auto-dictionary-29936",
+      storageBucket: "auto-dictionary-29936.appspot.com",
+      messagingSenderId: "103494421267",
+      appId: "1:103494421267:web:6762683fac5ac130e468e6",
+      measurementId: "G-EKSJXHHRYS"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth();
+    const provider = new GoogleAuthProvider();
+    const db = getFirestore();
+    const authContainer = document.getElementById("authContainer");
+
+    /* 로그인 UI 업데이트 */
+    function login() { signInWithPopup(auth, provider); }
+    function logout() { signOut(auth); }
+
+    function updateAuthUI(user) {
+      authContainer.innerHTML = '';
+      if (user) {
+        const name = user.displayName
+          ? (user.displayName.length > 5 ? user.displayName.slice(0,5)+'…' : user.displayName)
+          : (user.email || '사용자');
+
+        authContainer.innerHTML = `
+          <div class="user-menu">
+            <a href="#" class="flex items-center space-x-2" style="text-decoration:none; min-width:120px;">
+              <span class="user-label font-semibold">${name}</span>
+              <img src="${user.photoURL || ''}" 
+                   style="width:28px;height:28px;border-radius:50%;" />
+            </a>
+            <div class="user-dropdown">
+              <a href="#">${user.email}</a>
+              <a href="#" id="logoutBtn">로그아웃</a>
+            </div>
+          </div>`;
+        document.getElementById('logoutBtn')?.addEventListener('click', logout);
+      } else {
+        authContainer.innerHTML =
+          `<button id="loginBtn" class="px-4 py-2 rounded-full bg-blue-600 text-white text-sm font-semibold">로그인</button>`;
+        document.getElementById('loginBtn')?.addEventListener('click', login);
+      }
+    }
+
+    /* 🟦 학습 현황 Firestore 연동 함수 */
+    async function loadLearningStats(user) {
+      const userRef = doc(db, "users", user.email);
+
+      // --- 총 학습 단어 ---
+      let totalWords = 0;
+      const datesCol = collection(userRef, "dates");
+      const datesSnap = await getDocs(datesCol);
+
+      for (const d of datesSnap.docs) {
+        const shCol = collection(d.ref, "searchHistory");
+        const shSnap = await getDocs(shCol);
+        totalWords += shSnap.size;
+      }
+      document.getElementById("stat_totalWords").innerText = `${totalWords}개`;
+
+      // --- 퀴즈 참여(학습 도구) 횟수 ---
+      const toolsCol = collection(userRef, "tool");
+      const toolsSnap = await getDocs(toolsCol);
+      const quizCount = toolsSnap.size;
+      document.getElementById("stat_quizCount").innerText = `${quizCount}회`;
+
+      // --- 어제 학습 단어 ---
+      const today = new Date();
+      today.setDate(today.getDate() - 1);
+
+      const y = today.getFullYear();
+      const m = String(today.getMonth() + 1).padStart(2, "0");
+      const d = String(today.getDate()).padStart(2, "0");
+      const yesterdayId = `${y}-${m}-${d}`;
+
+      const yesterdayRef = doc(userRef, "dates", yesterdayId);
+      const yesterdayShCol = collection(yesterdayRef, "searchHistory");
+      const yesterdaySnap = await getDocs(yesterdayShCol);
+
+      document.getElementById("stat_yesterdayWords").innerText =
+        `${yesterdaySnap.size}개`;
+    }
+
+    /* 로그인 감지 - 데이터 로드 */
+    onAuthStateChanged(auth, async (user) => {
+      updateAuthUI(user);
+
+      if (user) {
+        await loadLearningStats(user);   /* 🔥 여기서 학습 데이터 로드 */
+      }
+    });
+
+    /* 검색 기능 */
+    const searchInput = document.getElementById("searchInput");
+    const searchBtn = document.getElementById("searchBtn");
+
+    function searchWord() {
+      const query = searchInput.value.trim();
+      if (query) {
+        window.location.href = `word_search_result.html?word=${encodeURIComponent(query)}`;
+      } else {
+        alert("검색어를 입력하세요!");
+      }
+    }
+
+    searchInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") searchWord();
+    });
+    searchBtn.addEventListener("click", searchWord);
+
+  </script>
+</body>
+</html>

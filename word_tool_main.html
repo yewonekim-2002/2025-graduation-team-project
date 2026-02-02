@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>학습 도구</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; background:#F7F9FC; color:#333; }
+    .container { max-width: 1000px; margin: 0 auto; padding: 2rem 1rem; }
+
+    /* 네비게이션 통일 */
+    nav a {
+      text-decoration: none !important;
+      transition: none !important;
+    }
+    nav a:hover {
+      color: inherit !important;
+    }
+
+    .tool-card {
+      background:#fff; border-radius:12px; padding:2rem;
+      box-shadow:0 4px 6px rgba(0,0,0,0.05);
+      transition:transform 0.2s, box-shadow 0.2s;
+      cursor:pointer; text-align:center;
+    }
+    .tool-card:hover {
+      transform:translateY(-5px);
+      box-shadow:0 10px 15px rgba(0,0,0,0.1);
+    }
+
+    .user-menu { position:relative; display:inline-block; }
+    .user-dropdown {
+      display:none; position:absolute; right:0; top:100%; transform:translateY(-8px);
+      background:#fff; border:1px solid #ddd; border-radius:8px; margin-top:8px; min-width:160px;
+      box-shadow:0 4px 8px rgba(0,0,0,.1); z-index:100;
+    }
+    .user-dropdown a {
+      display:block; padding:8px 12px; font-size:14px;
+      color:#333; text-decoration:none;
+    }
+    .user-dropdown a:hover { background:#f0f0f0; }
+    .user-menu:hover .user-dropdown { display:block; }
+  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+</head>
+<body class="bg-gray-100">
+
+  <!-- 네비게이션 -->
+  <header class="bg-white shadow-md py-4">
+    <nav class="container flex justify-between items-center">
+      <div class="flex items-center space-x-6">
+        <a href="home.html" class="text-gray-800 text-lg font-bold">홈</a>
+        <a href="word_main.html" class="text-gray-800 text-lg font-bold">단어장</a>
+        <a href="word_tool_main.html" class="text-blue-600 text-lg font-bold">학습 도구</a>
+        <a href="word_dashboard.html" class="text-gray-800 text-lg font-bold">사용자</a>
+      </div>
+      <div id="authContainer" class="flex items-center space-x-4"></div>
+    </nav>
+  </header>
+
+  <!-- 본문 -->
+  <main class="container">
+    <h1 class="text-3xl font-bold text-gray-900 mb-8 text-center">학습 도구</h1>
+    <p class="text-center text-gray-600 mb-12">나에게 맞는 학습 도구를 선택해 보세요.</p>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <a href="word_flashcard.html" class="tool-card flex flex-col items-center">
+        <div class="p-6 rounded-full bg-blue-100 mb-4">
+          <i class="fa-solid fa-clone text-3xl text-blue-600"></i>
+        </div>
+        <h2 class="text-xl font-bold text-gray-900 mb-2">플래시카드</h2>
+        <p class="text-gray-600">단어와 뜻을 연결하며 학습합니다</p>
+      </a>
+
+      <a href="word_quiz.html" class="tool-card flex flex-col items-center">
+        <div class="p-6 rounded-full bg-green-100 mb-4">
+          <i class="fa-solid fa-spell-check text-3xl text-green-600"></i>
+        </div>
+        <h2 class="text-xl font-bold text-gray-900 mb-2">퀴즈</h2>
+        <p class="text-gray-600">다양한 유형의 퀴즈로 실력을 점검합니다</p>
+      </a>
+
+      <a href="word_crosswordpuzzle.html" class="tool-card flex flex-col items-center">
+        <div class="p-6 rounded-full bg-yellow-100 mb-4">
+          <i class="fa-solid fa-border-all text-3xl text-yellow-600"></i>
+        </div>
+        <h2 class="text-xl font-bold text-gray-900 mb-2">십자말풀이</h2>
+        <p class="text-gray-600">재미있게 단어를 복습합니다</p>
+      </a>
+    </div>
+  </main>
+
+  <!-- Firebase 로그인 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
+    import {
+      getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBXc7qF3lz2dbWOu1O3ftSNu8dye1RLk3E",
+      authDomain: "auto-dictionary-29936.firebaseapp.com",
+      projectId: "auto-dictionary-29936",
+      storageBucket: "auto-dictionary-29936.appspot.com",
+      messagingSenderId: "103494421267",
+      appId: "1:103494421267:web:6762683fac5ac130e468e6",
+      measurementId: "G-EKSJXHHRYS"
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth();
+    const provider = new GoogleAuthProvider();
+    const authContainer = document.getElementById('authContainer');
+
+    function login(){ signInWithPopup(auth, provider); }
+    function logout(){ signOut(auth); }
+
+    function updateAuthUI(user){
+      authContainer.innerHTML = '';
+      if(user){
+        const name = user.displayName ? (user.displayName.length>5 ? user.displayName.slice(0,5)+'…' : user.displayName) : (user.email||'사용자');
+        authContainer.innerHTML = `
+          <div class="user-menu">
+            <a href="javascript:void(0);" class="flex items-center space-x-2">
+              <span class="user-label font-semibold">${name}</span>
+              <img src="${user.photoURL||''}" alt="사용자" style="width:28px;height:28px;border-radius:50%;"/>
+            </a>
+            <div class="user-dropdown">
+              <a href="#">${user.email}</a>
+              <a href="#" id="logoutBtn">로그아웃</a>
+            </div>
+          </div>`;
+        document.getElementById('logoutBtn')?.addEventListener('click', e => { e.preventDefault(); logout(); });
+      } else {
+        authContainer.innerHTML = `
+          <button id="loginBtn" class="px-4 py-2 rounded-full bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition">
+            로그인
+          </button>`;
+        document.getElementById('loginBtn')?.addEventListener('click', login);
+      }
+    }
+
+    onAuthStateChanged(auth, updateAuthUI);
+  </script>
+</body>
+</html>

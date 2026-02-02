@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>플래시카드</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;600;700&display=swap');
+    body { font-family: 'Gothic A1', sans-serif; background:#F7F9FC; color:#111827; }
+    .container { max-width: 1000px; margin: 0 auto; padding: 2rem 1rem; }
+
+    /* --- 단어장 카드(간단) --- */
+    .wordbook-card{
+      background:#fff; border-radius:12px; padding:1.25rem;
+      box-shadow:0 4px 6px rgba(0,0,0,0.05);
+      transition:transform .2s, box-shadow .2s; cursor:pointer;
+    }
+    .wordbook-card:hover{ transform:translateY(-4px); box-shadow:0 10px 15px rgba(0,0,0,0.1); }
+
+    /* --- 플래시카드 --- */
+    .flashcard-container{ width:100%; height:420px; perspective:1000px; }
+    .flashcard-inner{
+      position:relative; width:100%; height:100%; text-align:center;
+      transition:transform .8s; transform-style:preserve-3d; cursor:pointer;
+    }
+    .flashcard-inner.is-flipped{ transform:rotateY(180deg); }
+    .flashcard-front, .flashcard-back{
+      position:absolute; width:100%; height:100%; backface-visibility:hidden;
+      background:#fff; border-radius:12px; box-shadow:0 10px 20px rgba(0,0,0,0.08);
+      display:flex; align-items:center; justify-content:center; padding:2rem;
+    }
+    .flashcard-back{ transform:rotateY(180deg); }
+
+    /* --- 완료 카드 --- */
+    .quiz-card{
+      background:#fff; border-radius:20px; padding:2rem;
+      box-shadow:0 10px 25px rgba(0,0,0,0.05); text-align:center;
+    }
+
+    /* --- 유저 드롭다운 --- */
+    .user-menu{ position:relative; display:inline-block; }
+    .user-dropdown{
+      display:none; position:absolute; right:0; top:100%; transform:translateY(8px);
+      background:#fff; border:1px solid #ddd; border-radius:8px; min-width:160px;
+      box-shadow:0 4px 8px rgba(0,0,0,.1); z-index:100;
+    }
+    .user-dropdown a{ display:block; padding:8px 12px; font-size:14px; color:#333; text-decoration:none; }
+    .user-dropdown a:hover{ background:#f0f0f0; }
+    .user-menu:hover .user-dropdown{ display:block; }
+  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100">
+
+  <!-- 상단 네비게이션 -->
+  <header class="bg-white shadow-md py-4">
+    <nav class="container flex justify-between items-center">
+      <div class="flex items-center space-x-6">
+        <a href="home.html" class="text-gray-800 text-lg font-bold">홈</a>
+        <a href="word_main.html" class="text-gray-800 text-lg font-bold">단어장</a>
+        <a href="word_tool_main.html" class="text-blue-600 text-lg font-bold">학습 도구</a>
+        <a href="word_dashboard.html" class="text-gray-800 text-lg font-bold">사용자</a>
+      </div>
+      <div id="authContainer" class="flex items-center space-x-4"></div>
+    </nav>
+  </header>
+
+  <main class="container">
+    <!-- 단어장 선택 -->
+    <section id="list-section">
+      <h1 class="text-3xl font-bold text-gray-900 mb-8 text-center">플래시카드</h1>
+      <div id="wordbook-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div id="loading" class="text-center text-gray-500 mt-12 col-span-full">단어장 불러오는 중...</div>
+      </div>
+    </section>
+
+    <!-- 학습 화면 -->
+    <section id="study-section" class="hidden text-center">
+      <div class="flex justify-between items-center max-w-2xl mx-auto mb-4">
+        <a href="#" id="btnBackToList" class="text-gray-500 hover:text-blue-600 transition">
+          <i class="fas fa-arrow-left mr-2"></i>목록으로
+        </a>
+        <p id="progress" class="text-lg font-semibold text-gray-500"></p>
+      </div>
+      <h1 id="study-title" class="text-3xl font-bold text-gray-900 mb-8"></h1>
+
+      <div class="flashcard-container max-w-2xl mx-auto">
+        <div id="flashcardInner" class="flashcard-inner">
+          <div class="flashcard-front">
+            <p id="front-word" class="text-5xl font-bold text-gray-900"></p>
+          </div>
+          <div class="flashcard-back">
+            <div class="space-y-4 text-left w-full">
+              <p class="text-2xl font-bold text-gray-800 text-center mb-4">정답 확인</p>
+              <p class="text-lg font-bold text-gray-700">뜻: <span id="back-meaning" class="font-normal text-gray-800"></span></p>
+              <p class="text-lg font-bold text-gray-700">유의어: <span id="back-syn" class="font-normal text-gray-800"></span></p>
+              <p class="text-lg font-bold text-gray-700">반의어: <span id="back-ant" class="font-normal text-gray-800"></span></p>
+              <p class="text-lg font-bold text-gray-700">예문: <span id="back-ex" class="font-normal text-gray-800"></span></p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="answer-buttons" class="mt-6 max-w-md mx-auto flex justify-center space-x-4 hidden">
+        <button id="btnWrong" class="w-1/2 py-4 rounded-full bg-white text-gray-800 font-semibold hover:bg-gray-200 transition">
+          <i class="fas fa-times text-red-500 mr-2"></i> 오답
+        </button>
+        <button id="btnRight" class="w-1/2 py-4 rounded-full bg-white text-gray-800 font-semibold hover:bg-gray-200 transition">
+          <i class="fas fa-check text-green-500 mr-2"></i> 정답
+        </button>
+      </div>
+    </section>
+
+    <!-- 완료 화면 -->
+    <section id="complete-section" class="hidden text-center">
+      <h1 id="complete-title" class="text-3xl font-bold text-gray-900 mb-4"></h1>
+      <p id="complete-count" class="text-lg text-gray-500 mb-8"></p>
+      <div class="quiz-card p-12 max-w-lg mx-auto">
+        <p class="text-4xl font-bold text-gray-900">학습 완료!</p>
+      </div>
+      <div class="flex justify-center space-x-4 mt-8">
+        <button id="btnRestart" class="px-6 py-3 rounded-full bg-blue-600 text-white font-semibold hover:bg-blue-700 transition">
+          다시 하기
+        </button>
+      </div>
+      <a href="#" id="btnCompleteToList" class="block mt-4 text-gray-500 hover:text-blue-600 transition">
+        <i class="fas fa-arrow-left mr-2"></i>목록으로
+      </a>
+
+      <div id="incorrect-section" class="mt-10 hidden">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">다시 학습할 단어</h2>
+        <div id="incorrect-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Firebase -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
+    import {
+      getFirestore, collection, getDocs, getDoc, doc, setDoc, deleteDoc,
+      serverTimestamp, addDoc
+    } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
+
+    /* ---------- Firebase ---------- */
+    const firebaseConfig = {
+      apiKey: "AIzaSyBXc7qF3lz2dbWOu1O3ftSNu8dye1RLk3E",
+      authDomain: "auto-dictionary-29936.firebaseapp.com",
+      projectId: "auto-dictionary-29936",
+      storageBucket: "auto-dictionary-29936.appspot.com",
+      messagingSenderId: "103494421267",
+      appId: "1:103494421267:web:6762683fac5ac130e468e6"
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+
+    /* ---------- Auth UI ---------- */
+    const authContainer = document.getElementById('authContainer');
+    function login(){ signInWithPopup(auth, provider); }
+    function logout(){ signOut(auth).then(()=>location.reload()); }
+    function updateAuthUI(user){
+      authContainer.innerHTML='';
+      if(user){
+        const name = user.displayName || user.email || '사용자';
+        const photo = user.photoURL || 'https://cdn-icons-png.flaticon.com/512/847/847969.png';
+        authContainer.innerHTML = `
+          <div class="user-menu">
+            <a href="#" class="flex items-center space-x-2">
+              <span class="font-semibold">${name}</span>
+              <img src="${photo}" class="w-7 h-7 rounded-full object-cover">
+            </a>
+            <div class="user-dropdown">
+              <a href="#">${user.email || ''}</a>
+              <a href="#" id="logoutBtn" class="text-red-500 font-semibold">로그아웃</a>
+            </div>
+          </div>`;
+        document.getElementById('logoutBtn')?.addEventListener('click', e=>{e.preventDefault(); logout();});
+      }else{
+        authContainer.innerHTML = `<button id="loginBtn" class="px-4 py-2 rounded-full bg-blue-600 text-white text-sm font-semibold">로그인</button>`;
+        document.getElementById('loginBtn')?.addEventListener('click', login);
+      }
+    }
+
+    /* ---------- DOM ---------- */
+    const listSection = document.getElementById('list-section');
+    const studySection = document.getElementById('study-section');
+    const completeSection = document.getElementById('complete-section');
+
+    const wordbookList   = document.getElementById('wordbook-list');
+    const loading        = document.getElementById('loading');
+
+    const flashcardInner = document.getElementById('flashcardInner');
+    const frontWord      = document.getElementById('front-word');
+    const backMeaning    = document.getElementById('back-meaning');
+    const backSyn        = document.getElementById('back-syn');
+    const backAnt        = document.getElementById('back-ant');
+    const backEx         = document.getElementById('back-ex');
+
+    const progress       = document.getElementById('progress');
+    const studyTitle     = document.getElementById('study-title');
+
+    const answerButtons  = document.getElementById('answer-buttons');
+    const btnRight       = document.getElementById('btnRight');
+    const btnWrong       = document.getElementById('btnWrong');
+
+    const completeTitle  = document.getElementById('complete-title');
+    const completeCount  = document.getElementById('complete-count');
+    const incorrectWrap  = document.getElementById('incorrect-section');
+    const incorrectList  = document.getElementById('incorrect-list');
+
+    const btnRestart         = document.getElementById('btnRestart');
+    const btnBackToList      = document.getElementById('btnBackToList');
+    const btnCompleteToList  = document.getElementById('btnCompleteToList');
+
+    /* ---------- State ---------- */
+    let currentUserEmail = null;
+    let words = [];
+    let idx = 0;
+    let incorrect = [];
+    let lock = false; // 더블클릭 방지
+
+    /* ---------- Utils ---------- */
+    const toArr = v => Array.isArray(v) ? v.filter(Boolean) :
+      (v ? String(v).split(/[;,/·]/).map(s=>s.trim()).filter(Boolean) : []);
+    const asText = v => Array.isArray(v) ? v.join(', ') : (v || '-');
+    const dateId = ()=> new Date().toISOString().slice(0,10);
+    const show = el => [listSection,studySection,completeSection].forEach(s=>s.classList.toggle('hidden', s!==el));
+
+    /* ---------- Load Wordbooks ---------- */
+    async function loadWordbooks(email){
+      wordbookList.innerHTML=''; loading.classList.remove('hidden');
+
+      const items=[];
+      // dates
+      const dSnap = await getDocs(collection(db,'users',email,'dates'));
+      for(const d of dSnap.docs){
+        const sSnap = await getDocs(collection(db,'users',email,'dates',d.id,'searchHistory'));
+        items.push({kind:'dates', id:d.id, count:sSnap.size});
+      }
+      // custom
+      const cSnap = await getDocs(collection(db,'users',email,'custom'));
+      for(const c of cSnap.docs){
+        const sSnap = await getDocs(collection(db,'users',email,'custom',c.id,'searchHistory'));
+        items.push({kind:'custom', id:c.id, count:sSnap.size});
+      }
+
+      loading.classList.add('hidden');
+      if(!items.length){
+        wordbookList.innerHTML = '<p class="text-center text-gray-500 col-span-full mt-12">표시할 단어장이 없습니다.</p>';
+        return;
+      }
+
+      items.forEach(it=>{
+        const div=document.createElement('div');
+        div.className='wordbook-card';
+        div.innerHTML=`<div class="flex items-center mb-2">
+            <i class="fa-solid ${it.kind==='dates'?'fa-calendar-days':'fa-user'} text-blue-600 mr-3"></i>
+            <h3 class="text-lg font-bold">${it.id}</h3>
+          </div><p class="text-gray-600 text-sm">총 ${it.count}개 단어</p>`;
+        div.addEventListener('click',()=>startStudy(email,it));
+        wordbookList.appendChild(div);
+      });
+    }
+
+    /* ---------- Start Study ---------- */
+    async function startStudy(email, meta){
+      words=[]; idx=0; incorrect=[]; lock=false;
+
+      const path = meta.kind==='dates'
+        ? ['users',email,'dates',meta.id,'searchHistory']
+        : ['users',email,'custom',meta.id,'searchHistory'];
+
+      const snap = await getDocs(collection(db,...path));
+      snap.forEach(s=>{
+        const d=s.data(); if(!d.word) return;
+        const meanings = toArr(d.meaning || d.meanings);
+        if(!meanings.length) return;
+        words.push({
+          word: d.word,
+          meanings,
+          synonyms: toArr(d.synonyms),
+          antonyms: toArr(d.antonyms),
+          example: Array.isArray(d.examples)? d.examples[0] : (d.example || '')
+        });
+      });
+
+      if(!words.length){ alert('이 단어장에 학습할 단어가 없습니다.'); return; }
+
+      studyTitle.textContent = meta.id;
+      renderCard();
+      show(studySection);
+    }
+
+    /* ---------- Render ---------- */
+    function renderCard(){
+      if(idx>=words.length){ finishStudy(); return; }
+      const w=words[idx];
+      progress.textContent = `${idx+1}/${words.length}`;
+      frontWord.textContent = w.word;
+      backMeaning.textContent = asText(w.meanings);
+      backSyn.textContent = asText(w.synonyms);
+      backAnt.textContent = asText(w.antonyms);
+      backEx.textContent = asText(w.example);
+
+      flashcardInner.classList.remove('is-flipped');
+      answerButtons.classList.add('hidden');
+      lock=false;
+    }
+
+    /* ---------- Flip ---------- */
+    flashcardInner.addEventListener('click', ()=>{
+      flashcardInner.classList.toggle('is-flipped');
+      answerButtons.classList.toggle('hidden', !flashcardInner.classList.contains('is-flipped'));
+    });
+
+    /* ---------- Answer ---------- */
+    btnRight.addEventListener('click', ()=>{
+      if(lock) return; lock=true;
+      idx++; renderCard();
+    });
+
+    btnWrong.addEventListener('click', ()=>{
+      if(lock) return; lock=true;
+      // 중복 방지
+      const w = words[idx];
+      if(!incorrect.some(i=>i.word===w.word)) incorrect.push(w);
+      idx++; renderCard();
+    });
+
+    /* ---------- Finish ---------- */
+    async function finishStudy(){
+      show(completeSection);
+      completeTitle.textContent = studyTitle.textContent;
+      completeCount.textContent = `${words.length}/${words.length}`;
+
+      // 오답 UI
+      incorrectList.innerHTML='';
+      if(!incorrect.length){
+        incorrectWrap.classList.add('hidden');
+      }else{
+        incorrectWrap.classList.remove('hidden');
+        incorrect.forEach(w=>{
+          const div=document.createElement('div');
+          div.className='wordbook-card';
+          div.innerHTML=`<h4 class="font-bold text-lg">${w.word}</h4>
+                         <p class="text-gray-700 mt-1">${w.meanings[0]}</p>`;
+          incorrectList.appendChild(div);
+        });
+      }
+
+      // 오답 단어장 저장 (+ wrongCount 관리)
+      if(currentUserEmail && incorrect.length){
+        const name = `오답 단어장 (${dateId()})`;
+        const bookRef = doc(db,'users',currentUserEmail,'custom',name);
+        const histCol = collection(db,'users',currentUserEmail,'custom',name,'searchHistory');
+
+        try{
+          // (1) 오답 단어장 문서 존재 여부
+          const bookSnap = await getDoc(bookRef);
+
+          if(!bookSnap.exists()){
+            // 좀비 하위컬렉션 제거
+            const leftover = await getDocs(histCol);
+            if(!leftover.empty){
+              for(const ds of leftover.docs) await deleteDoc(ds.ref);
+            }
+            // 새로 생성 (dummy 포함)
+            await setDoc(bookRef,{ dummy:true, createdAt:serverTimestamp() });
+            console.log(`[새 오답 단어장 생성] ${name}`);
+          }else{
+            console.log(`[기존 오답 단어장 존재] ${name} → 단어 추가/증가`);
+          }
+
+          // (2) 오답 저장: wrongCount 증가 로직
+          for(const w of incorrect){
+            const wordRef = doc(histCol, w.word);
+            const wordSnap = await getDoc(wordRef);
+
+            if(wordSnap.exists()){
+              const prev = wordSnap.data().incorrectCount || 0;
+              await setDoc(wordRef, {
+                // 의미/유의어 등은 최신값으로 병합
+                word: w.word,
+                meaning: w.meanings,
+                synonyms: w.synonyms || [],
+                antonyms: w.antonyms || [],
+                example: w.example || '',
+                incorrectCount: prev + 1,          // 🔼 증가
+                updatedAt: serverTimestamp()
+              }, { merge:true });
+            }else{
+              await setDoc(wordRef, {
+                word: w.word,
+                meaning: w.meanings,
+                synonyms: w.synonyms || [],
+                antonyms: w.antonyms || [],
+                example: w.example || '',
+                incorrectCount: 1,                 // 🔹 최초 1회
+                createdAt: serverTimestamp()
+              });
+            }
+          }
+          console.log(`[✔] ${name} 저장 완료`);
+        }catch(e){
+          console.error('[오답 저장 실패]', e);
+        }
+      }
+
+      // (3) 플래시카드 완료 로그 (퀴즈와 동일 경로)
+      // (3) 플래시카드 완료 로그 (users/{email}/tool)
+try {
+  // 부모 문서(users/{email})가 없으면 생성
+  const userDocRef = doc(db, 'users', currentUserEmail);
+  const userDocSnap = await getDoc(userDocRef);
+  if (!userDocSnap.exists()) {
+    await setDoc(userDocRef, { createdAt: serverTimestamp() });
+  }
+
+  // tool 컬렉션에 로그 추가
+  const customId = new Date().toISOString();
+  const toolRef = doc(db, 'users', currentUserEmail, 'tool', customId);
+  await setDoc(toolRef, {
+    type: 'flashcard',
+    wordbookName: studyTitle.textContent,
+    finishedAt: serverTimestamp()
+  });
+
+  console.log('✅ tool 로그 저장 완료');
+} catch (e) {
+  console.error('[❌ tool 로그 실패]', e);
+}
+
+    }
+
+    /* ---------- Nav ---------- */
+    btnRestart.addEventListener('click', ()=>{ idx=0; incorrect=[]; renderCard(); show(studySection); });
+    btnBackToList.addEventListener('click', e=>{ e.preventDefault(); loadWordbooks(currentUserEmail); show(listSection); });
+    btnCompleteToList.addEventListener('click', e=>{ e.preventDefault(); loadWordbooks(currentUserEmail); show(listSection); });
+
+    /* ---------- Auth state ---------- */
+    onAuthStateChanged(auth, async (user)=>{
+      updateAuthUI(user);
+      if(!user) return;
+      currentUserEmail = user.email;
+      await loadWordbooks(currentUserEmail);
+    });
+  </script>
+</body>
+</html>

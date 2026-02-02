@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>검색 결과</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: sans-serif;
+      background-color: #e0e0e0;
+    }
+
+    nav {
+      padding: 10px;
+      border-bottom: 1px solid #ccc;
+      background-color: #fff;
+      display: flex;
+      justify-content: center;
+    }
+
+    nav a {
+      margin-right: 10px;
+      cursor: pointer;
+      text-decoration: underline;
+      color: black;
+    }
+
+    nav a:nth-child(2),
+    nav a:nth-child(3),
+    .user-menu {
+      margin-left: 15px;
+    }
+
+    .user-menu {
+      position: relative;
+      display: inline-block;
+    }
+
+    .user-dropdown {
+      display: none;
+      position: absolute;
+      background-color: #fff;
+      min-width: 160px;
+      box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.2);
+      z-index: 1;
+      top: 25px;
+      right: 0;
+      border-radius: 6px;
+    }
+
+    .user-dropdown a {
+      color: black;
+      padding: 12px 16px;
+      text-decoration: none;
+      display: block;
+    }
+
+    .user-dropdown a:hover {
+      background-color: #ddd;
+    }
+
+    .user-menu:hover .user-dropdown {
+      display: block;
+    }
+
+    section {
+      display: none;
+      margin-top: 20px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    section.active {
+      display: block;
+    }
+
+    .center-box {
+      height: calc(100vh - 60px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      color: #444;
+    }
+
+    /*통계 부분*/
+    section {
+      margin: 30px auto;
+      padding: 20px;
+      background-color: #d0dbbd;
+      border-radius: 10px;
+      width: 80%;
+      max-width: 800px;
+    }
+
+    .tabs {
+      text-align: center;
+      margin-bottom: 15px;
+    }
+
+    .tab {
+      padding: 5px 10px;
+      border: 1px solid gray;
+      background: #eee;
+      cursor: pointer;
+      margin-right: 5px;
+      border-radius: 4px;
+    }
+
+    .tab.active {
+      background: white;
+      border: 2px solid gray;
+    }
+
+    .words-grid {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .words-grid ul {
+      list-style-type: none;
+      padding: 0;
+      width: 48%;
+    }
+
+    .words-grid li {
+      background: #fff;
+      margin: 6px 0;
+      padding: 8px;
+      border-radius: 4px;
+      box-shadow: 0 0 2px rgba(0, 0, 0, 0.1);
+      text-align: left;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- 네비게이션 -->
+  <nav>
+    <a onclick="location.href='mainpage.html'">홈</a>
+    <a onclick="location.href='study_note.html'">어휘 학습</a>
+    <a onclick="location.href='study_tools.html'">학습 도구</a>
+    <div id="authContainer"></div>
+  </nav>
+
+  <!-- 중앙 텍스트 -->
+  <div class="center-box">
+    학습 도구 페이지
+  </div>
+
+  <!-- 통계 부분 -->
+  <section id="statisticsSection">
+    <h3>가장 많이 검색된 단어</h3>
+
+    <div class="tabs">
+      <button class="tab active" data-period="week" onclick="showWords('week',  event)">1주</button>
+      <button class="tab" data-period="month" onclick="showWords('month', event)">1개월</button>
+      <button class="tab" data-period="half" onclick="showWords('half',  event)">6개월</button>
+      <button class="tab" data-period="year" onclick="showWords('year',  event)">1년</button>
+    </div>
+
+    <div class="words-grid">
+      <ul id="wordListLeft"></ul>
+      <ul id="wordListRight"></ul>
+    </div>
+  </section>
+
+  <!-- Firebase 인증 및 UI 업데이트 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
+    import {
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      signOut,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBXc7qF3lz2dbWOu1O3ftSNu8dye1RLk3E",
+      authDomain: "auto-dictionary-29936.firebaseapp.com",
+      projectId: "auto-dictionary-29936",
+      storageBucket: "auto-dictionary-29936.appspot.com",
+      messagingSenderId: "103494421267",
+      appId: "1:103494421267:web:6762683fac5ac130e468e6",
+      measurementId: "G-EKSJXHHRYS"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth();
+    const provider = new GoogleAuthProvider();
+    const authContainer = document.getElementById("authContainer");
+
+    function login() {
+      signInWithPopup(auth, provider)
+        .then((result) => {
+          console.log("로그인 성공:", result.user.displayName);
+        })
+        .catch((error) => {
+          console.error("로그인 실패:", error);
+        });
+    }
+
+    function logout() {
+      signOut(auth)
+        .then(() => {
+          console.log("로그아웃 완료");
+        })
+        .catch((error) => {
+          console.error("로그아웃 실패:", error);
+        });
+    }
+
+    function updateAuthUI(user) {
+      authContainer.innerHTML = "";
+      if (user) {
+        const name = user.displayName.length > 5 ? user.displayName.slice(0, 5) : user.displayName;
+        authContainer.innerHTML = `
+          <div class="user-menu">
+            <a href="javascript:void(0);" style="text-decoration: none">
+              <span class="user-label">${name}</span>
+              <img src="${user.photoURL}" alt="사용자" style="width: 24px; height: 24px; border-radius: 50%; vertical-align: middle;" />
+            </a>
+            <div class="user-dropdown">
+              <a href="#">사용자 정보</a>
+              <a href="#" onclick="document.getElementById('statisticsSection').scrollIntoView({behavior: 'smooth'})">통계</a>
+              <a href="#" id="logoutBtn">로그아웃</a>
+            </div>
+          </div>
+        `;
+        document.getElementById("logoutBtn").addEventListener("click", logout);
+      } else {
+        authContainer.innerHTML = `<button id="loginBtn">로그인</button>`;
+        document.getElementById("loginBtn").addEventListener("click", login);
+      }
+    }
+
+    onAuthStateChanged(auth, (user) => {
+      updateAuthUI(user);
+    });
+
+    <!--임의 단어 -->
+    const data = [
+      {
+        date: "2025-05-20",
+        words: [
+          { word: "happy", meaning: "행복한", synonyms: ["joyful", "cheerful"] },
+          { word: "fast", meaning: "빠른", synonyms: ["quick", "speedy"] }
+        ]
+      },
+      {
+        date: "2025-04-01",
+        words: [
+          { word: "cold", meaning: "추운", synonyms: ["chilly", "freezing"] },
+          { word: "happy", meaning: "행복한", synonyms: ["joyful", "cheerful"] }
+        ]
+      },
+      {
+        date: "2025-01-10",
+        words: [
+          { word: "sad", meaning: "슬픈", synonyms: ["gloomy", "unhappy"] },
+          { word: "bright", meaning: "밝은", synonyms: ["shiny", "radiant"] }
+        ]
+      }
+    ];
+
+    function getPopularWords(period) {
+      const now = new Date();
+      const ranges = { week: 7, month: 30, half: 180, year: 365 };
+      const cutoff = new Date(now.getTime() - ranges[period] * 24 * 60 * 60 * 1000);
+
+      const wordCount = {}, wordInfo = {};
+      data.forEach(entry => {
+        if (new Date(entry.date) >= cutoff) {
+          entry.words.forEach(({ word, meaning, synonyms }) => {
+            wordCount[word] = (wordCount[word] || 0) + 1;
+            if (!wordInfo[word]) wordInfo[word] = { meaning, synonyms };
+          });
+        }
+      });
+
+      return Object.entries(wordCount)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8)
+        .map(([word]) => ({ word, ...wordInfo[word] }));
+    }
+
+    function showWords(period, event) {
+      document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+      if (event && event.target) event.target.classList.add('active');
+
+      const words = getPopularWords(period);
+      const left = words.slice(0, 4);
+      const right = words.slice(4, 8);
+
+      const li = w => `<li><strong>${w.word}</strong> (${w.meaning})<br><small>유의어: ${w.synonyms.join(', ')}</small></li>`;
+      wordListLeft.innerHTML = left.map(li).join('');
+      wordListRight.innerHTML = right.map(li).join('');
+    }
+
+    function scrollAndLoadStatistics() {
+      const btn = document.querySelector('button.tab[data-period="week"]');
+      showWords('week', { target: btn });
+      document.getElementById('statisticsSection').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    /* 첫 화면 기본 1주 표시 */
+    document.addEventListener('DOMContentLoaded', () => {
+      showWords('week', { target: document.querySelector('button.tab[data-period="week"]') });
+    });
+
+  </script>
+</body>
+
+</html>

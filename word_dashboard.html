@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>사용자 페이지</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;600;700&display=swap');
+    body { font-family: 'Gothic A1', sans-serif; background:#F7F9FC; color:#333; }
+    .container { max-width: 1000px; margin: 0 auto; padding: 2rem 1rem; }
+
+    /* 카드 */
+    .wordbook-card {
+      border-radius: 12px; padding: 1.5rem; color:#fff;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+      transition: transform .2s, box-shadow .2s; cursor: pointer;
+    }
+    .wordbook-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px rgba(0,0,0,0.1); }
+    .progress-bar-container { background: rgba(255,255,255,.3); border-radius:9999px; height:8px; overflow:hidden; }
+    .progress-bar { background:#fff; height:100%; transition: width .5s; }
+
+    /* 캘린더/통계 공통 */
+    .calendar-container, .stat-card {
+      background:#fff; border-radius:12px; padding:1.5rem; box-shadow:0 4px 6px rgba(0,0,0,.05);
+    }
+    .calendar-day-container { display:flex; justify-content:center; align-items:center; }
+    .calendar-day { width:40px; height:40px; display:flex; justify-content:center; align-items:center; border-radius:50%; font-weight:500; }
+    .calendar-day.studied { background:#F3F4F6; color:#3B82F6; font-weight:700; }
+
+    /* 상단 로그인 드롭다운 */
+    .user-menu { position:relative; display:inline-block; }
+    .user-dropdown {
+      display:none; position:absolute; right:0; top:100%; transform:translateY(8px);
+      background:#fff; border:1px solid #ddd; border-radius:8px; min-width:180px;
+      box-shadow:0 4px 8px rgba(0,0,0,.1); z-index:100;
+    }
+    .user-dropdown a { display:block; padding:8px 12px; font-size:14px; color:#333; text-decoration:none; }
+    .user-dropdown a:hover { background:#f0f0f0; }
+    .user-menu:hover .user-dropdown { display:block; }
+    /* 모달 중앙 정렬 */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 50;
+}
+
+.modal-content {
+  background: #fff;
+  border-radius: 12px;
+  padding: 2rem;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+  <!-- 네비게이션 바 -->
+  <header class="bg-white shadow-md py-4">
+    <nav class="container flex justify-between items-center">
+      <div class="flex items-center space-x-6">
+        <a href="home.html" class="text-gray-800 text-lg font-bold">홈</a>
+        <a href="word_main.html" class="text-gray-800 text-lg font-bold">단어장</a>
+        <a href="word_tool_main.html" class="text-gray-800 text-lg font-bold">학습 도구</a>
+        <a href="word_dashboard.html" class="text-blue-600 text-lg font-bold">사용자</a>
+      </div>
+      <div id="authContainer" class="flex items-center space-x-4"></div>
+    </nav>
+  </header>
+
+  <main class="container">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <!-- 좌측: 최근 단어장 + 최근 학습 + 통계 -->
+      <div class="lg:col-span-2">
+        <div class="flex justify-between items-center mb-6">
+          <h1 class="text-3xl font-bold text-gray-900">My Vocabulary</h1>
+          <a href="word_main.html" class="text-gray-500 font-semibold hover:underline">전체 보기</a>
+        </div>
+
+        <!-- 🔹 최신 4개 단어장 (동적) -->
+        <div id="recentWordbooks" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- 로그인/로딩 상태에 따라 동적으로 채워짐 -->
+        </div>
+
+        <!-- 🔹 최근 학습 (Firestore tool 컬렉션 기반) -->
+        <div class="mt-8 p-6 bg-white rounded-xl shadow-lg">
+          <h2 class="text-2xl font-bold text-gray-900 mb-4">최근 학습</h2>
+          <div id="recentLearningList" class="space-y-4">
+            <!-- 동적으로 채워짐 -->
+          </div>
+        </div>
+
+        <!-- 학습 통계 -->
+        <div class="mt-8 p-6 bg-white rounded-xl shadow-lg">
+          <h2 class="text-2xl font-bold text-gray-900 mb-4">학습 통계</h2>
+          <div class="flex space-x-2 mb-4">
+            <button onclick="updateStats('1주일')" class="px-4 py-2 rounded-full text-sm font-semibold transition bg-blue-600 text-white" id="tab-1주일">1주일</button>
+            <button onclick="updateStats('1개월')" class="px-4 py-2 rounded-full text-sm font-semibold transition bg-gray-200 text-gray-800" id="tab-1개월">1개월</button>
+            <button onclick="updateStats('2개월')" class="px-4 py-2 rounded-full text-sm font-semibold transition bg-gray-200 text-gray-800" id="tab-2개월">2개월</button>
+            <button onclick="updateStats('6개월')" class="px-4 py-2 rounded-full text-sm font-semibold transition bg-gray-200 text-gray-800" id="tab-6개월">6개월</button>
+            <button onclick="updateStats('1년')" class="px-4 py-2 rounded-full text-sm font-semibold transition bg-gray-200 text-gray-800" id="tab-1년">1년</button>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="stat-card">
+              <h3 class="text-xl font-bold text-gray-800 mb-4">가장 많이 검색한 단어</h3>
+              <ul id="most-searched-words" class="space-y-3"></ul>
+            </div>
+            <div class="stat-card">
+              <h3 class="text-xl font-bold text-gray-800 mb-4">가장 많이 틀린 단어</h3>
+              <ul id="most-incorrect-words" class="space-y-3"></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 우측: 목표/캘린더 -->
+      <div class="lg:col-span-1">
+        <div class="mt-4 p-4 bg-white rounded-lg shadow-lg text-center">
+          <h3 class="text-xl font-bold mb-2" id="goal-status">이번 달 목표를 설정해보세요!</h3>
+          <button onclick="showGoalModal()" class="px-4 py-2 rounded-full bg-blue-600 text-white font-semibold hover:bg-blue-700 transition">목표 설정</button>
+        </div>
+        <div id="encouragement-message" class="mt-4 p-4 bg-blue-100 border-l-4 border-blue-500 text-blue-800 rounded-lg"></div>
+        <div class="calendar-container mt-6">
+          <div class="flex justify-between items-center mb-4">
+            <button onclick="changeMonth(-1)" class="text-gray-500 hover:text-gray-800 transition"><i class="fas fa-chevron-left"></i></button>
+            <h2 id="calendar-title" class="text-xl font-bold"></h2>
+            <button onclick="changeMonth(1)" class="text-gray-500 hover:text-gray-800 transition"><i class="fas fa-chevron-right"></i></button>
+          </div>
+          <div class="grid grid-cols-7 gap-1 text-center text-sm font-semibold text-gray-500 mb-2">
+            <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+          </div>
+          <div id="calendar-grid" class="grid grid-cols-7 gap-1 text-sm text-gray-800"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 목표 설정 모달 -->
+  <div id="goalModal" class="modal-overlay hidden">
+    <div class="modal-content text-center">
+      <h3 class="text-xl font-bold mb-4">이번 달 학습 목표</h3>
+      <p class="text-sm text-gray-600 mb-4">이번 달에 학습할 날짜 수를 입력해주세요.</p>
+      <input type="number" id="goalInput" class="w-full p-3 rounded-lg border border-gray-300 mb-4 text-center text-2xl font-bold focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <div class="flex justify-center space-x-4">
+        <button onclick="closeGoalModal()" class="px-6 py-2 rounded-full bg-gray-200 text-gray-800 font-semibold hover:bg-gray-300 transition">취소</button>
+        <button onclick="saveGoal()" class="px-6 py-2 rounded-full bg-blue-600 text-white font-semibold hover:bg-blue-700 transition">설정 완료</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase + 페이지 스크립트 -->
+  <script type="module">
+    /* ---------------- Firebase ---------------- */
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
+    import {
+      getFirestore, collection, getDocs, getDoc, doc, query, orderBy, limit, setDoc
+    } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBXc7qF3lz2dbWOu1O3ftSNu8dye1RLk3E",
+      authDomain: "auto-dictionary-29936.firebaseapp.com",
+      projectId: "auto-dictionary-29936",
+      storageBucket: "auto-dictionary-29936.appspot.com",
+      messagingSenderId: "103494421267",
+      appId: "1:103494421267:web:6762683fac5ac130e468e6"
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+
+    const authContainer = document.getElementById('authContainer');
+    const recentWrap = document.getElementById('recentWordbooks');
+    const recentLearningList = document.getElementById('recentLearningList');
+
+    function login(){ signInWithPopup(auth, provider); }
+    function logout(){ signOut(auth).then(()=>location.reload()); }
+
+    function updateAuthUI(user){
+      authContainer.innerHTML = '';
+      if(user){
+        const name  = user.displayName || user.email || '사용자';
+        const photo = user.photoURL || 'https://cdn-icons-png.flaticon.com/512/847/847969.png';
+        authContainer.innerHTML = `
+          <div class="user-menu">
+            <a href="#" class="flex items-center space-x-2">
+              <span class="font-semibold">${name}</span>
+              <img src="${photo}" class="w-7 h-7 rounded-full object-cover">
+            </a>
+            <div class="user-dropdown">
+              <a href="#">${user.email || ''}</a>
+              <a href="#" id="logoutBtn" class="text-red-500 font-semibold">로그아웃</a>
+            </div>
+          </div>`;
+        document.getElementById('logoutBtn')?.addEventListener('click', e => { e.preventDefault(); logout(); });
+      }else{
+        recentWrap.innerHTML = `<div class="col-span-full text-center text-gray-500">로그인 후 이용 가능합니다.</div>`;
+        recentLearningList.innerHTML = `<div class="text-gray-500">로그인 후 이용 가능합니다.</div>`;
+        authContainer.innerHTML = `<button id="loginBtn" class="px-4 py-2 rounded-full bg-blue-600 text-white text-sm font-semibold">로그인</button>`;
+        document.getElementById('loginBtn')?.addEventListener('click', login);
+      }
+    }
+
+    // 페이지 로드 & 로그인 상태 변화
+    onAuthStateChanged(auth, async (user) => {
+      updateAuthUI(user);
+      if (!user) return;
+      await loadGoalFromFirestore(user.email);
+      studiedDates = await loadStudiedDatesFromFirestore(user.email);
+      renderCalendar(); 
+
+      await renderRecentWordbooks(user.email);
+      await renderRecentLearning(user.email);
+      await refreshStatsFromFirestore(user.email, 7);   // 기본 1주일
+      setActiveTab('1주일');
+    });
+
+    /* ---------- 최근 4개 단어장 렌더링 (기존 기능 유지) ---------- */
+
+    const COLOR_CLASSES = ['bg-blue-500','bg-orange-500','bg-yellow-500','bg-green-500'];
+
+    const toMillis = (createdAt, id, kind) => {
+      if (createdAt && typeof createdAt.toMillis === 'function') return createdAt.toMillis();
+      // dates 컬렉션은 id가 YYYY-MM-DD 형태일 가능성 → 파싱
+      if (kind === 'dates' && /^\d{4}-\d{2}-\d{2}$/.test(id)) {
+        try { return new Date(id + "T00:00:00").getTime(); } catch { return 0; }
+      }
+      return 0;
+    };
+
+    const formatKoreanDate = (idOrDate) => {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(idOrDate)) {
+        const [y,m,d] = idOrDate.split('-').map(Number);
+        return `${y}년 ${m}월 ${d}일`;
+      }
+      return idOrDate; // 커스텀 단어장은 그대로 제목 사용
+    };
+
+    async function countWords(email, kind, id){
+      const histCol = collection(db,'users',email, kind, id, 'searchHistory');
+      const snap = await getDocs(histCol);
+      let total = 0, completed = 0;
+      snap.forEach(ds => {
+        total++;
+        const data = ds.data();
+        if (data && data.study === true) completed++;
+      });
+      return { total, completed };
+    }
+
+    async function renderRecentWordbooks(email){
+      recentWrap.innerHTML = `<div class="col-span-full text-center text-gray-500">불러오는 중...</div>`;
+
+      // 각 컬렉션에서 createdAt 내림차순으로 조금 넉넉히 가져온 뒤 병합
+      const customQ = query(collection(db,'users',email,'custom'), orderBy('createdAt','desc'), limit(8));
+      const datesQ  = query(collection(db,'users',email,'dates'),  orderBy('createdAt','desc'), limit(8));
+
+      const [customSnap, datesSnap] = await Promise.all([
+        getDocs(customQ).catch(()=>({ empty:true, docs:[] })),
+        getDocs(datesQ).catch(()=>({ empty:true, docs:[] })),
+      ]);
+
+      const rows = [];
+      customSnap?.docs?.forEach(d=>{
+        const data = d.data() || {};
+        rows.push({ kind:'custom', id:d.id, createdAtMs: toMillis(data.createdAt, d.id, 'custom'), title:d.id });
+      });
+      datesSnap?.docs?.forEach(d=>{
+        const data = d.data() || {};
+        rows.push({ kind:'dates', id:d.id, createdAtMs: toMillis(data.createdAt, d.id, 'dates'), title: formatKoreanDate(d.id) });
+      });
+
+      if (!rows.length){
+        recentWrap.innerHTML = `<div class="col-span-full text-center text-gray-500">표시할 단어장이 없습니다.</div>`;
+        return;
+      }
+
+      // 최신순 정렬 후 4개만
+      rows.sort((a,b)=> b.createdAtMs - a.createdAtMs);
+      const top4 = rows.slice(0,4);
+
+      // 카드 렌더링 (단어 개수/진도는 searchHistory 읽어서 계산)
+      recentWrap.innerHTML = '';
+      let colorIdx = 0;
+      for (const r of top4){
+        const colorClass = COLOR_CLASSES[colorIdx % COLOR_CLASSES.length]; colorIdx++;
+
+        const { total, completed } = await countWords(email, r.kind, r.id);
+        const percent = total ? Math.round((completed/total)*100) : 0;
+        const subtitle = total ? `단어: ${total}개 · ${percent}%` : `단어: 0개`;
+
+        const card = document.createElement('div');
+        card.className = `wordbook-card ${colorClass}`;
+        card.innerHTML = `
+          <div class="flex items-start justify-between">
+            <h3 class="text-xl font-bold mb-2">${r.kind==='dates' ? formatKoreanDate(r.id) : r.id}</h3>
+          </div>
+          <p class="text-sm opacity-90 mb-4">${subtitle}</p>
+          <div class="progress-bar-container">
+            <div class="progress-bar" style="width:${percent}%;"></div>
+          </div>
+        `;
+
+        // 클릭 시 상세 페이지로 이동
+        const href = r.kind === 'dates'
+          ? `word_detail.html?type=dates&date=${encodeURIComponent(r.id)}`
+          : `word_detail.html?type=custom&name=${encodeURIComponent(r.id)}`;
+        card.addEventListener('click', ()=> { window.location.href = href; });
+
+        recentWrap.appendChild(card);
+      }
+    }
+
+    /* ---------- 🔹 최근 학습 (tool) ---------- */
+    function formatKoreanDateFromJS(date){
+      const y = date.getFullYear();
+      const m = date.getMonth()+1;
+      const d = date.getDate();
+      return `${y}년 ${m}월 ${d}일`;
+    }
+
+    async function renderRecentLearning(email){
+  recentLearningList.innerHTML = `<div class="text-gray-500">불러오는 중...</div>`;
+  try{
+    const toolCol = collection(db, 'users', email, 'tool');
+    let snap = null;
+    try {
+      const q1 = query(toolCol, orderBy('finishedAt', 'desc'), limit(3));
+      snap = await getDocs(q1);
+    } catch {
+      snap = await getDocs(query(toolCol, limit(3)));
+    }
+
+    if (snap.empty){
+      recentLearningList.innerHTML = `<div class="text-gray-500">최근 학습 기록이 없습니다.</div>`;
+      return;
+    }
+
+    recentLearningList.innerHTML = '';
+    snap.docs.forEach(docu=>{
+      const data = docu.data() || {};
+      const type = data.type || 'quiz';
+      const name = data.wordbookName || '(제목 없음)';
+
+      // ✅ 타입별 아이콘 & 제목 설정
+      let icon = 'fa-pen-nib';
+      let label = '퀴즈';
+
+      if (type === 'flashcard') {
+        icon = 'fa-clone';
+        label = '플래시카드';
+      } else if (type === 'crossword') {     // 👈 crossword 추가
+        icon = 'fa-table-cells-large';       // 🧩 퍼즐 느낌 아이콘
+        label = '십자말풀이';
+      }
+
+      const time = data.finishedAt?.toDate ? data.finishedAt.toDate() : new Date();
+      const when = formatKoreanDateFromJS(time);
+
+      const row = document.createElement('div');
+      row.className = 'flex items-center space-x-4';
+      row.innerHTML = `
+        <div class="w-12 h-12 flex items-center justify-center rounded-lg bg-gray-200">
+          <i class="fas ${icon} text-xl text-gray-600"></i>
+        </div>
+        <div>
+          <p class="font-semibold">${label} - ${name}</p>
+          <p class="text-sm text-gray-500">${when}</p>
+        </div>
+      `;
+      recentLearningList.appendChild(row);
+    });
+  }catch(e){
+    console.error('[최근 학습 로드 실패]', e);
+    recentLearningList.innerHTML = `<div class="text-red-500">최근 학습을 불러오지 못했습니다.</div>`;
+  }
+}
+
+
+    /* ---------------- 아래는 기존 대시보드(캘린더/통계) 샘플 스크립트 ---------------- */
+    // 샘플 데이터 (캘린더 표시용)
+    let studiedDates = [];
+
+    let currentMonth = new Date().getMonth();
+    let currentYear  = new Date().getFullYear();
+    let learningGoal = 0;
+
+    const calendarTitle = document.getElementById('calendar-title');
+    const calendarGrid  = document.getElementById('calendar-grid');
+    const mostSearchedWordsList  = document.getElementById('most-searched-words');
+    const mostIncorrectWordsList = document.getElementById('most-incorrect-words');
+    const goalModal = document.getElementById('goalModal');
+    const goalInput = document.getElementById('goalInput');
+    const goalStatus = document.getElementById('goal-status');
+    const encouragementMessage = document.getElementById('encouragement-message');
+
+    const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+    async function loadGoalFromFirestore(email) {
+  try {
+    const userRef = doc(db, "users", email);
+    const snap = await getDoc(userRef);
+    const key = `goal_${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`; // ex) goal_2025-10
+
+    if (snap.exists() && snap.data()[key]) {
+      learningGoal = snap.data()[key];
+      console.log(`✅ Firestore에서 ${key} 불러옴:`, learningGoal);
+    } else {
+      learningGoal = 0;
+      console.log(`ℹ️ ${key} 데이터 없음`);
+    }
+  } catch (e) {
+    console.error("❌ goal 불러오기 실패:", e);
+  }
+}
+
+
+async function loadStudiedDatesFromFirestore(email) {
+  const toolCol = collection(db, "users", email, "tool");
+  const snap = await getDocs(toolCol);
+  const dateSet = new Set();
+
+  snap.forEach(docu => {
+    const data = docu.data() || {};
+    let dateStr = null;
+
+    // ① 문서 ID가 타임스탬프 형태면 날짜만 추출
+    if (/^\d{4}-\d{2}-\d{2}/.test(docu.id)) {
+      dateStr = docu.id.slice(0, 10);
+    }
+
+    // ② finishedAt 또는 createdAt 필드가 있다면 거기서도 날짜 추출
+    const ts = data.finishedAt || data.createdAt;
+    if (ts?.toDate) {
+      const d = ts.toDate();
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      dateStr = `${y}-${m}-${day}`;
+    }
+
+    if (dateStr) dateSet.add(dateStr);
+  });
+
+  return Array.from(dateSet);
+}
+
+
+    function renderCalendar() {
+      calendarGrid.innerHTML = '';
+      calendarTitle.textContent = `${monthNames[currentMonth]} ${currentYear}`;
+      const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+      const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+      const currentMonthStudiedCount = studiedDates.filter(date => {
+        const d = new Date(date); return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      }).length;
+
+      for (let i=0;i<firstDay;i++){
+        const wrap=document.createElement('span'); wrap.className='calendar-day-container';
+        const node=document.createElement('span'); node.className='calendar-day text-gray-400';
+        wrap.appendChild(node); calendarGrid.appendChild(wrap);
+      }
+      for (let day=1; day<=daysInMonth; day++){
+        const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+        const wrap=document.createElement('span'); wrap.className='calendar-day-container';
+        const node=document.createElement('span'); node.className='calendar-day';
+        if (studiedDates.includes(dateStr)) node.classList.add('studied');
+        node.textContent = day; wrap.appendChild(node); calendarGrid.appendChild(wrap);
+      }
+      updateCalendarInfo(currentMonthStudiedCount);
+    }
+    async function changeMonth(direction) {
+  currentMonth += direction;
+  if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+  else if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+
+  const user = auth.currentUser;
+  if (user) {
+    await loadGoalFromFirestore(user.email);  // ✅ 현재 달 기준 goal 다시 불러오기
+  }
+
+  renderCalendar(); // ✅ 캘린더 다시 그리기
+}
+
+    function updateCalendarInfo(count){
+      if (learningGoal>0){
+        const progress = Math.min(Math.round((count/learningGoal)*100),100);
+        goalStatus.textContent = `이번 달 목표: ${learningGoal}일 중 ${count}일 학습 (${progress}%)`;
+        encouragementMessage.textContent =
+          count>=learningGoal ? "목표 달성! 정말 대단해요! 🎉" :
+          progress>=75 ? "목표가 눈앞에 있어요! 조금만 더 힘내세요!" :
+          progress>=50 ? "절반 이상 달성! 아주 잘하고 있어요!" :
+          count>0 ? "오늘도 새로운 단어를 배웠군요! 시작이 좋아요!" :
+          "아직 이번 달 학습 기록이 없어요. 오늘부터 시작해 볼까요?";
+      }else{
+        goalStatus.textContent = "이번 달 목표를 설정해보세요!";
+        encouragementMessage.textContent = count>0 ? `벌써 ${count}일이나 학습했어요! 목표를 정해볼까요?` : "아직 이번 달 학습 기록이 없어요. 오늘부터 시작해 볼까요?";
+      }
+    }
+    function showGoalModal(){ goalModal.classList.remove('hidden'); goalInput.value = learningGoal>0 ? learningGoal : ''; }
+    function closeGoalModal(){ goalModal.classList.add('hidden'); }
+    async function saveGoal() {
+  const n = parseInt(goalInput.value, 10);
+  if (isNaN(n) || n <= 0) {
+    alert("목표는 1 이상의 숫자만 입력할 수 있습니다.");
+    return;
+  }
+
+  const user = auth.currentUser;
+  if (!user) {
+    alert("로그인 후 이용해주세요.");
+    return;
+  }
+
+  try {
+    const userRef = doc(db, "users", user.email);
+    const key = `goal_${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`; // ex) goal_2025-10
+
+    await setDoc(userRef, { [key]: n }, { merge: true });
+    console.log(`✅ Firestore에 ${key} 저장 완료:`, n);
+
+    learningGoal = n;
+    closeGoalModal();
+    renderCalendar();
+  } catch (e) {
+    console.error("❌ goal 저장 실패:", e);
+    alert("목표 저장 중 오류가 발생했습니다.");
+  }
+}
+
+
+
+    /* ---------- 🔹 통계(실데이터) ---------- */
+
+    function setActiveTab(label){
+      document.querySelectorAll('[id^="tab-"]').forEach(btn=>{
+        btn.classList.remove('bg-blue-600','text-white');
+        btn.classList.add('bg-gray-200','text-gray-800');
+      });
+      const tab=document.getElementById(`tab-${label}`);
+      if(tab){
+        tab.classList.remove('bg-gray-200','text-gray-800');
+        tab.classList.add('bg-blue-600','text-white');
+      }
+    }
+
+    async function updateStats(period) {
+  // 1️⃣ 탭 색상 토글
+  document.querySelectorAll('[id^="tab-"]').forEach(btn=>{
+    btn.classList.remove('bg-blue-600','text-white');
+    btn.classList.add('bg-gray-200','text-gray-800');
+  });
+  const tab=document.getElementById(`tab-${period}`);
+  tab.classList.remove('bg-gray-200','text-gray-800');
+  tab.classList.add('bg-blue-600','text-white');
+
+  // 2️⃣ 기간 계산
+  const days = {'1주일':7,'1개월':30,'2개월':60,'6개월':180,'1년':365}[period] ?? 7;
+
+  // 3️⃣ 로그인 사용자 확인 후 Firestore에서 다시 로드
+  const user = auth.currentUser;
+  if(user){
+    await refreshStatsFromFirestore(user.email, days);
+  } else {
+    console.warn('로그인되지 않았습니다.');
+  }
+}
+
+
+    function withinRange(ts, cutoff){
+      const t = ts?.toDate ? ts.toDate() : (ts instanceof Date ? ts : null);
+      if(!t) return false;
+      return t.getTime() >= cutoff.getTime();
+    }
+
+    async function refreshStatsFromFirestore(email, days = 7){
+      // 로딩 표시
+      mostSearchedWordsList.innerHTML  = `<p class="text-gray-500 text-center">불러오는 중...</p>`;
+      mostIncorrectWordsList.innerHTML = `<p class="text-gray-500 text-center">불러오는 중...</p>`;
+
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days);
+      const searchedCounts = new Map();
+      const incorrectCounts = new Map();
+
+      // 1) 가장 많이 검색한 단어: users/{email}/dates/{YYYY-MM-DD}/searchHistory/* 의 count 합산
+      try{
+        const datesSnap = await getDocs(collection(db, 'users', email, 'dates'));
+        const dateIds = datesSnap.docs
+          .map(d=>d.id)
+          .filter(id=>/^\d{4}-\d{2}-\d{2}$/.test(id))
+          .filter(id=>{
+            const dt = new Date(id + 'T00:00:00');
+            return dt.getTime() >= cutoff.getTime();
+          });
+
+        for(const dateId of dateIds){
+          const histCol = collection(db, 'users', email, 'dates', dateId, 'searchHistory');
+          const histSnap = await getDocs(histCol);
+          histSnap.forEach(h=>{
+            const data = h.data() || {};
+            const word = data.word || h.id;
+            const cnt = Number(data.count || 0);
+            if(!word || !cnt) return;
+            searchedCounts.set(word, (searchedCounts.get(word)||0) + cnt);
+          });
+        }
+      }catch(e){ console.error('[검색 단어 집계 실패]', e); }
+
+      // 2) 가장 많이 틀린 단어: users/{email}/custom/{오답 단어장*}/searchHistory/* 의 incorrectCount 합산
+      try{
+        const customSnap = await getDocs(collection(db,'users',email,'custom'));
+        const wrongBooks = customSnap.docs.filter(d => d.id.includes('오답 단어장'));
+        for(const wb of wrongBooks){
+          const histCol = collection(db,'users',email,'custom',wb.id,'searchHistory');
+          const histSnap = await getDocs(histCol);
+          histSnap.forEach(h=>{
+            const data = h.data() || {};
+            const ts = data.updatedAt || data.createdAt; // 기간 판정
+            if(ts && !withinRange(ts, cutoff)) return;
+            const word = data.word || h.id;
+            const cnt = Number(data.incorrectCount || 0);
+            if(!word || !cnt) return;
+            incorrectCounts.set(word, (incorrectCounts.get(word)||0) + cnt);
+          });
+        }
+      }catch(e){ console.error('[오답 단어 집계 실패]', e); }
+
+      // 상위 10개 정렬 후 렌더
+      const searchedList = Array.from(searchedCounts.entries())
+        .map(([word,count])=>({word,count}))
+        .sort((a,b)=>b.count-a.count)
+        .slice(0,10);
+
+      const incorrectList = Array.from(incorrectCounts.entries())
+        .map(([word,count])=>({word,count}))
+        .sort((a,b)=>b.count-a.count)
+        .slice(0,10);
+
+      renderWordList(searchedList,  mostSearchedWordsList);
+      renderWordList(incorrectList, mostIncorrectWordsList);
+    }
+
+    function renderWordList(words, container){
+      container.innerHTML='';
+      if(!words.length){
+        container.innerHTML=`<p class="text-gray-500 text-center">데이터가 없습니다.</p>`;
+        return;
+      }
+      words.forEach(w=>{
+        const li=document.createElement('li');
+        li.className='flex justify-between items-center p-3 bg-gray-100 rounded-lg';
+        li.innerHTML=`<span class="font-semibold text-gray-800">${w.word}</span><span class="text-sm text-gray-600">${w.count}회</span>`;
+        container.appendChild(li);
+      });
+    }
+
+    /* ---------------- 기존 캘린더/목표 로직 유지 ---------------- */
+    window.onload = ()=>{ renderCalendar(); };
+    window.updateStats   = updateStats;
+    window.changeMonth   = changeMonth;
+    window.showGoalModal = showGoalModal;
+    window.closeGoalModal= closeGoalModal;
+    window.saveGoal      = saveGoal;
+
+  </script>
+</body>
+</html>
